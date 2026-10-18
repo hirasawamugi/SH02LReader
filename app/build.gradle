@@ -14,8 +14,8 @@ android {
         applicationId 'com.sh02l.reader'
         minSdk 27
         targetSdk 35
-        versionCode 2
-        versionName '0.2.0-m1'
+        versionCode 3
+        versionName '0.2.5-m1.5'
         testInstrumentationRunner 'android.test.InstrumentationTestRunner'
     }
     useLibrary 'android.test.runner'

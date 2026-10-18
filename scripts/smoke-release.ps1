@@ -1,5 +1,6 @@
 param([Parameter(Mandatory=$true)][ValidatePattern('^[A-Za-z0-9._:-]+$')][string]$Serial,
-      [ValidatePattern('^[A-Za-z0-9_-]+$')][string]$Label = 'device')
+      [ValidatePattern('^[A-Za-z0-9_-]+$')][string]$Label = 'device',
+      [switch]$LegacyM1)
 $ErrorActionPreference = 'Stop'
 $taskRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $taskAdb = Join-Path $taskRoot 'tools\android-sdk\platform-tools\adb.exe'
@@ -16,7 +17,7 @@ function Press-ReaderKey([int]$Code) { Invoke-ReaderAdb @('shell','input','keyev
 function Read-ReaderUi {
     Press-ReaderKey 224
     Invoke-ReaderAdb @('shell','uiautomator','dump','--compressed',"$taskRemote/diagnostics/verification-ui.xml") | Out-Null
-    $taskUiFile = Join-Path $taskLogs ('ui-m1-' + $Label + '.xml')
+    $taskUiFile = Join-Path $taskLogs ('ui-release-' + $Label + '.xml')
     Invoke-ReaderAdb @('pull',"$taskRemote/diagnostics/verification-ui.xml",$taskUiFile) | Out-Null
     return [xml][IO.File]::ReadAllText($taskUiFile)
 }
@@ -76,6 +77,10 @@ foreach ($taskFormat in @('UTF8','GB18030')) {
     Press-ReaderKey 20
     if ($taskFormat -eq 'GB18030') { Press-ReaderKey 20 }
     Press-ReaderKey 23
+    if (-not $LegacyM1) {
+        Wait-ReaderText '复制导入' | Out-Null
+        Press-ReaderKey 23
+    }
     Wait-ReaderText '原创验证文本' | Out-Null
     for ($taskStep = 0; $taskStep -lt 5; $taskStep++) { Press-ReaderKey 22 }
     Start-Sleep -Milliseconds 700
