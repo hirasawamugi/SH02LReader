@@ -10,6 +10,14 @@ import java.util.Arrays;
 import static org.junit.Assert.*;
 
 public class TextImporterTest {
+    @Test public void everyOutputStageConsultsTheSpaceGuardBeforeWriting()throws Exception {
+        for(String stopped:new String[]{"copy","decode","commit"}){
+            File directory=temporary.newFolder();final String[] phase={"copy"};
+            TextImporter.Observer observer=new TextImporter.Observer(){public boolean cancelled(){return false;}public void progress(String value,long bytes){phase[0]=value;}public void beforeWrite(long bytes)throws IOException{if(stopped.equals(phase[0]))throw new IOException("storage exhausted at "+stopped);}};
+            try{TextImporter.prepare(new ByteArrayInputStream("plain text\n".getBytes("UTF-8")),directory,null,observer);fail("Write ignored space guard at "+stopped);}catch(IOException expected){}
+            try{TextImporter.readIndex(directory);fail("Failed import published a readable index");}catch(IOException expected){}
+        }
+    }
     @Rule public TemporaryFolder temporary = new TemporaryFolder();
     private File importBytes(byte[] bytes) throws Exception {
         File directory = temporary.newFolder();

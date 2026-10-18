@@ -23,16 +23,21 @@ final class CoverStore {
                 File original=new File(staging,"original.bin");MessageDigest digest=digest();long copied=0;
                 try(FileOutputStream out=new FileOutputStream(original)){
                     byte[] buffer=new byte[16384];int n;while((n=input.read(buffer))!=-1){TextImporter.check(observer);if(copied+n>32L*1024*1024)throw new IOException("Cover exceeds 32 MiB");
-                        if(root.getUsableSpace()<n+8L*1024*1024)throw new IOException("Not enough cover space");out.write(buffer,0,n);digest.update(buffer,0,n);copied+=n;if(observer!=null)observer.progress("copy",copied);}out.getFD().sync();
+                        if(root.getUsableSpace()<n+8L*1024*1024)throw new IOException("Not enough cover space");if(observer!=null)observer.beforeWrite(n);out.write(buffer,0,n);digest.update(buffer,0,n);copied+=n;if(observer!=null)observer.progress("copy",copied);}out.getFD().sync();
                 }
                 CoverDecoder.Info info=CoverDecoder.inspect(original);Bitmap probe=CoverDecoder.decode(original,84,126);probe.recycle();TextImporter.check(observer);
                 String revision=UUID.randomUUID().toString(),sha=hex(digest.digest()),safeName=name==null?"cover":name.replaceAll("[\\p{Cntrl}]"," ");safeName=safeName.substring(0,Math.min(512,safeName.length()));
+                if(observer!=null)observer.beforeWrite(4096);
                 try(FileOutputStream file=new FileOutputStream(new File(staging,"record.bin"))){DataOutputStream out=new DataOutputStream(file);out.writeUTF(safeName);out.writeUTF(info.mime);out.writeUTF(sha);out.flush();file.getFD().sync();}
+                DurableFiles.syncDirectory(staging);
                 published=new File(book,revision);if(!staging.renameTo(published))throw new IOException("Cannot publish cover revision");
+                DurableFiles.syncDirectory(book);if(observer!=null)observer.beforeWrite(4096);
                 AtomicFile pointer=new AtomicFile(new File(book,"current.bin"));FileOutputStream file=null;
-                try{TextImporter.check(observer);file=pointer.startWrite();DataOutputStream out=new DataOutputStream(file);out.writeUTF(revision);out.flush();pointer.finishWrite(file);}catch(IOException|RuntimeException error){if(file!=null)pointer.failWrite(file);throw error;}
-                Record record=new Record(bookId,revision,new File(published,"original.bin"),safeName,info.mime,sha);published=null;
-                File[] old=book.listFiles();if(old!=null)for(File path:old)if(path.isDirectory()&&!path.getName().equals(revision))removeOwned(book,path);
+                File committedDirectory=published;
+                try{TextImporter.check(observer);file=pointer.startWrite();DataOutputStream out=new DataOutputStream(file);out.writeUTF(revision);out.flush();file.getFD().sync();pointer.finishWrite(file);published=null;}catch(IOException|RuntimeException error){if(file!=null)pointer.failWrite(file);throw error;}
+                DurableFiles.syncDirectory(book);DurableFiles.syncDirectory(root);
+                Record record=new Record(bookId,revision,new File(committedDirectory,"original.bin"),safeName,info.mime,sha);
+                File[] old=book.listFiles();if(old!=null)for(File path:old)if(path.isDirectory()&&!path.getName().equals(revision)&&(path.getName().startsWith(".staging-")||path.getName().matches("[0-9a-f-]{36}")))try{removeOwned(book,path);}catch(IOException ignored){/* Valid committed cover stays usable; retry old revision cleanup on the next import. */}
                 return record;
             }finally{removeOwned(book,staging);if(published!=null)removeOwned(book,published);}
         }

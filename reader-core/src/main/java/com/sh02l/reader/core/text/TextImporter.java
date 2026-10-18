@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
 
 /** Streaming import. Offsets always count UTF-16 units in normalized (LF) text, version 1. */
 public final class TextImporter {
-    public interface Observer { void progress(String phase, long bytes); boolean cancelled(); }
+    public interface Observer { void progress(String phase, long bytes); boolean cancelled(); default void beforeWrite(long bytes)throws IOException{} }
     public static final class Chapter {
         public final String title;
         public final long offset;
@@ -37,6 +37,12 @@ public final class TextImporter {
     private static void progress(Observer observer, String phase, long count) throws IOException {
         check(observer); if (observer != null) observer.progress(phase, count);
     }
+    private static OutputStream checked(OutputStream output,Observer observer) {
+        return new FilterOutputStream(output){
+            @Override public void write(int value)throws IOException{check(observer);if(observer!=null)observer.beforeWrite(1);out.write(value);}
+            @Override public void write(byte[] buffer,int offset,int length)throws IOException{check(observer);if(observer!=null)observer.beforeWrite(length);out.write(buffer,offset,length);}
+        };
+    }
     /** Caller owns a fresh staging directory and publishes it only after this returns. */
     public static Result prepare(InputStream source, File staging, String override, Observer observer) throws IOException {
         if (!staging.isDirectory() && !staging.mkdirs()) {
@@ -51,6 +57,7 @@ public final class TextImporter {
             byte[] buffer = new byte[16384]; int count;
             while ((count = input.read(buffer)) != -1) {
                 progress(observer, "copy", bytes);
+                if(observer!=null)observer.beforeWrite(count);
                 output.write(buffer, 0, count); digest.update(buffer, 0, count); bytes += count;
             }
             output.getFD().sync();
@@ -66,7 +73,7 @@ public final class TextImporter {
         boolean longLine = false, lastCr = false, first = true;
         try (Reader input = new InputStreamReader(new FileInputStream(original), decoder);
              FileOutputStream file = new FileOutputStream(new File(staging, "text.u16"))) {
-            BufferedOutputStream output = new BufferedOutputStream(file, 16384);
+            BufferedOutputStream output = new BufferedOutputStream(checked(file,observer), 16384);
             char[] buffer = new char[8192]; byte[] encoded = new byte[16384]; int count;
             while ((count = input.read(buffer)) != -1) {
                 progress(observer, "decode", length * 2);
@@ -97,7 +104,7 @@ public final class TextImporter {
         Result result = new Result(hash.toString(), charset, bytes, length, chapters);
         progress(observer, "commit", bytes);
         try (FileOutputStream file = new FileOutputStream(new File(staging, "index.bin"))) {
-            DataOutputStream output = new DataOutputStream(new BufferedOutputStream(file));
+            DataOutputStream output = new DataOutputStream(new BufferedOutputStream(checked(file,observer)));
             output.writeInt(MAGIC); output.writeInt(VERSION); output.writeUTF(result.id); output.writeUTF(charset);
             output.writeLong(bytes); output.writeLong(length); output.writeInt(chapters.size());
             for (Chapter chapter : chapters) { output.writeUTF(chapter.title); output.writeLong(chapter.offset); }

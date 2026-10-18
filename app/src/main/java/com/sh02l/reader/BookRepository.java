@@ -6,6 +6,7 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import com.sh02l.reader.core.text.TextImporter;
+import com.sh02l.reader.core.importing.ImportCoordinator;
 import java.io.*;
 import java.util.*;
 
@@ -72,23 +73,33 @@ final class BookRepository extends SQLiteOpenHelper {
             TextImporter.check(observer);
             Book existing = get(result.id);
             File destination = directory(result.id);
-            if (existing != null) { TextImporter.readIndex(destination); return existing; }
+            if (existing != null) { verifyDuplicate(staging,destination,result.id,observer); return existing; }
             if (destination.exists()) {
                 // A complete directory may survive a crash between rename and database commit.
                 TextImporter.Result orphan = TextImporter.readIndex(destination);
                 if (!result.id.equals(orphan.id)) throw new IOException("Conflicting library directory");
-            } else if (!staging.renameTo(destination)) throw new IOException("Cannot publish imported book");
+                verifyDuplicate(staging,destination,result.id,observer);
+            } else {DurableFiles.syncDirectory(staging);if(!staging.renameTo(destination))throw new IOException("Cannot publish imported book");DurableFiles.syncDirectory(books);}
             // Once the complete directory is published, finish the short catalogue transaction even if
             // cancellation arrives. A late cancel can keep a completed book, never a half-written book.
             ContentValues values = new ContentValues();
             values.put("id", result.id); values.put("title", title(name)); values.put("charset", result.charset);
             values.put("length", result.length); values.put("source_bytes", result.sourceBytes);
+            if(observer!=null)observer.beforeWrite(65536);
             SQLiteDatabase db = getWritableDatabase(); db.beginTransaction();
             try { db.insertOrThrow("books", null, values); db.setTransactionSuccessful(); }
             finally { db.endTransaction(); }
             return get(result.id);
         } finally { removeStaging(staging); }
     }
+    private static void verifyDuplicate(File staging,File destination,String id,TextImporter.Observer observer)throws IOException {
+        TextImporter.Result stored=TextImporter.readIndex(destination);
+        if(!id.equals(stored.id)||!id.equals(ImportCoordinator.sha256(new File(destination,"original.bin"))))throw new IOException("Damaged private original");
+        try(InputStream a=new FileInputStream(new File(staging,"text.u16"));InputStream b=new FileInputStream(new File(destination,"text.u16"))){
+            byte[] left=new byte[16384],right=new byte[16384];int n;while((n=a.read(left))!=-1){TextImporter.check(observer);int offset=0;while(offset<n){int read=b.read(right,offset,n-offset);if(read<0)throw new IOException("Truncated private text");offset+=read;}for(int i=0;i<n;i++)if(left[i]!=right[i])throw new IOException("Damaged private text");}if(b.read()!=-1)throw new IOException("Conflicting private text");
+        }
+    }
+    File original(String id)throws IOException {if(get(id)==null)throw new IOException("Book unavailable");File original=new File(directory(id),"original.bin");if(!id.equals(ImportCoordinator.sha256(original)))throw new IOException("Damaged private original");return original;}
     private static String title(String name) {
         if (name == null || name.trim().isEmpty()) return "未命名 TXT";
         String value = name.replaceAll("[\\p{Cntrl}]", " ").trim();
