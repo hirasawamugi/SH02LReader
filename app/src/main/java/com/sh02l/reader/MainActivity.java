@@ -37,6 +37,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     private static final class Screen {
         final Kind kind; final List<Row> rows = new ArrayList<>();
         int selected, group; String title; File directory;final String targetBookId;
+        boolean helpReading;String[] helpFunctions;
         Screen(Kind kind, String title) {this(kind,title,"");}
         Screen(Kind kind,String title,String targetBookId) {this.kind=kind;this.title=title;this.targetBookId=targetBookId;}
     }
@@ -71,6 +72,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     private ListView baseList, overlayList;
     private TextView noticeView, infoView, diagnosticView;
     private PageView pageView;
+    private KeyHelpView helpView;
     private long context = 1, generation, committedOffset = -1;
     private String committedBook = "", notice = "F3 导入 TXT，确认打开图书";
     private String libraryReturnId = "";
@@ -130,6 +132,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     @Override public long contextVersion() { return context; }
     @Override public Action resolve(Key key) {
         Kind kind = top().kind;
+        if(kind==Kind.HELP){switch(key){case ZERO:return Action.HELP;case F2:case F4:return Action.BACK;case UP:return Action.UP;case DOWN:return Action.DOWN;default:return Action.NONE;}}
         if (key == Key.F2) return kind == Kind.LIBRARY || kind == Kind.READER ? Action.NONE : Action.BACK;
         if (key == Key.F4) return kind == Kind.LIBRARY ? Action.NONE : Action.BACK;
         if (key == Key.F1 || key == Key.F3) {
@@ -169,8 +172,8 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     @Override public void perform(Action action) {
         if(action!=Action.NONE)importCompletionNotice="";
         switch (action) {
-            case UP: select(top().selected - 1); break;
-            case DOWN: select(top().selected + 1); break;
+            case UP: if(top().kind==Kind.HELP&&helpView!=null)helpView.move(-1);else select(top().selected - 1); break;
+            case DOWN: if(top().kind==Kind.HELP&&helpView!=null)helpView.move(1);else select(top().selected + 1); break;
             case LEFT: if (top().kind == Kind.SETTINGS) adjust(-1); break;
             case RIGHT: if (top().kind == Kind.SETTINGS) adjust(1); break;
             case ACTIVATE: if (top().kind == Kind.READER) turn(1); else activate(); break;
@@ -290,8 +293,11 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
                 .putBoolean("info", infoVisible).apply();
     }
     private void help() {
-        Screen screen = new Screen(Kind.HELP, "按键说明"); screen.rows.add(new Row("back", "返回")); push(screen);
+        if(top().kind==Kind.HELP){back();return;}
+        Screen screen = new Screen(Kind.HELP, "SH-02L 按键说明");screen.helpReading=top().kind==Kind.READER;
+        screen.helpFunctions=new String[]{helpAction(resolve(Key.F1)),helpAction(resolve(Key.F2)),helpAction(resolve(Key.F3)),helpAction(resolve(Key.F4))};push(screen);
     }
+    private static String helpAction(Action action){switch(action){case MENU:return "菜单";case IMPORT:return "导入";case BACK:return "返回";default:return "无操作";}}
     private void activate() {
         if (top().rows.isEmpty()) return;
         Row row = top().rows.get(bound(top().selected, 0, top().rows.size() - 1));
@@ -507,10 +513,12 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
                 runOnUiThread(() -> {
                     if (!valid(token)) return;
                     String result=outcome.status==ImportCoordinator.Status.MOVED?"移动完成":outcome.status==ImportCoordinator.Status.COPIED_SOURCE_RETAINED?"导入完成，原文件未删除":"导入完成";
+                    Screen help=top().kind==Kind.HELP?top():null;
                     while (screens.size() > 1) screens.remove(screens.size() - 1);
                     context++;importRequest=null;modeRequest=null;selectedImportSource=null;selectedImportFile=null;
                     if(book!=null){openBook(book);importCompletionNotice=result;notice=result;}
                     else{libraryReturnId=request.targetBookId;goLibrary();notice=result;}
+                    if(help!=null)push(help);
                     Toast.makeText(MainActivity.this,result,Toast.LENGTH_LONG).show();render();
                 });
             } catch (Exception error) { fail(token, "导入失败：请检查文本编码、权限和可用空间；原文件未改动", error); }
@@ -676,13 +684,13 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
             builtBase = content; builtStyle = style; builtOverlay = null;
             if(baseList!=null&&baseList.getAdapter() instanceof LibraryAdapter)((LibraryAdapter)baseList.getAdapter()).close();
             root.removeAllViews(); root.setBackgroundColor(background);
-            pageView = null; baseList = null; overlayList = null; diagnosticView = infoView = noticeView = null;
+            pageView = null; helpView=null; baseList = null; overlayList = null; diagnosticView = infoView = noticeView = null;
             root.addView(buildContent(content), new FrameLayout.LayoutParams(-1, -1));
             overlayHost = new FrameLayout(this); root.addView(overlayHost, new FrameLayout.LayoutParams(-1, -1));
         }
         if (top().kind.overlay()) {
             if (builtOverlay != top()) { overlayHost.removeAllViews(); buildOverlay(top()); builtOverlay = top(); }
-        } else { overlayHost.removeAllViews(); builtOverlay = null; overlayList = null; }
+        } else { overlayHost.removeAllViews(); builtOverlay = null; overlayList = null;helpView=null; }
         ListView active = top().kind.overlay() ? overlayList : baseList;
         if(baseList!=null){if(baseList.getAdapter() instanceof LibraryAdapter)((LibraryAdapter)baseList.getAdapter()).setSelectedBook(selectedId(content));((BaseAdapter)baseList.getAdapter()).notifyDataSetChanged();}
         if (baseList != null) baseList.setFocusable(!top().kind.overlay());
@@ -691,7 +699,8 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
             ((BaseAdapter) active.getAdapter()).notifyDataSetChanged();
             if (active.getSelectedItemPosition() != top().selected) active.setSelection(top().selected);
             if (!active.hasFocus()) active.requestFocus();
-        } else if (top().kind == Kind.READER && pageView != null && !pageView.hasFocus()) pageView.requestFocus();
+        } else if(top().kind==Kind.HELP&&helpView!=null)helpView.requestFocus();
+        else if (top().kind == Kind.READER && pageView != null && !pageView.hasFocus()) pageView.requestFocus();
         if (noticeView != null) noticeView.setText(notice);
         if (infoView != null) infoView.setText(session == null ? "" : percent(anchor, session.book.length)
                 + " · " + session.book.charset + " · " + fontSize + "号");
@@ -709,8 +718,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
             column.addView(pageView, new LinearLayout.LayoutParams(-1, 0, 1));
             if (infoVisible) { infoView = text("", 11, secondary); infoView.setTag("reading-info"); column.addView(infoView); }
         } else {
-            if (screen.kind == Kind.HELP) column.addView(paragraph("列表：↑↓选择，确认打开。F1 菜单，F2 返回当前层，F4 返回。\n正文：↑/←上一页，↓/→/确认下一页。\n1/3 上/下一章，2 目录，4/6 字号，5 主题，7/9 亮度，8 信息栏，0 帮助，＊设置，＃书签。"));
-            else if (screen.kind == Kind.SETTINGS) column.addView(paragraph("上下选择，左右调整。返回保留正文位置。"));
+            if (screen.kind == Kind.SETTINGS) column.addView(paragraph("上下选择，左右调整。返回保留正文位置。"));
             else if (screen.kind == Kind.SOURCES) column.addView(paragraph("导入后不再依赖原文件或内存卡。\n应用导入文件夹：\n" + getExternalFilesDir("import")));
             else if (screen.kind == Kind.IMPORT) column.addView(paragraph("正在后台处理文本，F2 可取消。\n完成后自动打开，重复文件保留原进度。"));
             else if (screen.kind == Kind.DIAGNOSTICS) {
@@ -728,15 +736,17 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         column.addView(footer);return column;
     }
     private void buildOverlay(Screen screen) {
+        helpView=null;overlayList=null;
         Palette palette=Palette.forTheme(uiTheme);UiStyle style=new UiStyle(this,palette);
         FrameLayout shade = new FrameLayout(this); shade.setTag("overlay"); shade.setBackgroundColor(0x99000000); shade.setClickable(true);
         LinearLayout panel = vertical(); panel.setPadding(dp(12), dp(12), dp(12), dp(10)); panel.setBackground(round(palette.surface));
         TextView title=style.title(screen.title);panel.addView(title);
         if(screen.kind==Kind.IMPORT_MODE){TextView explanation=text(notice,12,palette.secondary);explanation.setPadding(0,0,0,dp(10));panel.addView(explanation);}
-        if(screen.kind==Kind.HELP)panel.addView(text("↑↓ 选择，确认打开。F1 菜单，F2/F4 返回。正文：方向键翻页，0 帮助。",12,palette.secondary));
-        overlayList = list(screen); panel.addView(overlayList, new LinearLayout.LayoutParams(-1, 0, 1));
-        SoftKeyBar footer=new SoftKeyBar(this);footer.setHints("↑↓ 选择","确认 执行","F2 返回",palette);panel.addView(footer);
+        if(screen.kind==Kind.HELP){helpView=new KeyHelpView(this);helpView.setPalette(palette);helpView.setReadingContext(screen.helpReading);String[] functions=screen.helpFunctions;helpView.setFunctionLabels(functions[0],functions[1],functions[2],functions[3]);panel.addView(helpView,new LinearLayout.LayoutParams(-1,0,1));}
+        else{overlayList = list(screen); panel.addView(overlayList, new LinearLayout.LayoutParams(-1, 0, 1));}
+        SoftKeyBar footer=new SoftKeyBar(this);footer.setHints(screen.kind==Kind.HELP?"↑↓ 滚动":"↑↓ 选择",screen.kind==Kind.HELP?"0 关闭":"确认 执行","F2 返回",palette);panel.addView(footer);
         int height = Math.min((root.getHeight()>0?root.getHeight():getResources().getDisplayMetrics().heightPixels) - dp(40), Math.min(8,screen.rows.size())*(style.rowHeight(64)+dp(6))+dp(screen.kind==Kind.IMPORT_MODE?196:100));
+        if(screen.kind==Kind.HELP)height=(root.getHeight()>0?root.getHeight():getResources().getDisplayMetrics().heightPixels)-dp(40);
         FrameLayout.LayoutParams parameters = new FrameLayout.LayoutParams(-1, Math.max(dp(180), height), Gravity.CENTER);
         parameters.setMargins(dp(16), dp(20), dp(16), dp(20)); shade.addView(panel, parameters);
         overlayHost.addView(shade, new FrameLayout.LayoutParams(-1, -1));
