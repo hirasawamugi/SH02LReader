@@ -1,0 +1,56 @@
+plugins { id 'com.android.application' }
+
+def releaseProperties = new Properties()
+def releasePropertiesFile = rootProject.file('tools/signing/release.properties')
+if (releasePropertiesFile.exists()) {
+    releasePropertiesFile.withInputStream { releaseProperties.load(it) }
+}
+
+android {
+    namespace 'com.sh02l.reader'
+    compileSdk 35
+    buildToolsVersion '34.0.0'
+    defaultConfig {
+        applicationId 'com.sh02l.reader'
+        minSdk 27
+        targetSdk 35
+        versionCode 1
+        versionName '0.1.0-m0'
+        testInstrumentationRunner 'android.test.InstrumentationTestRunner'
+    }
+    useLibrary 'android.test.runner'
+    useLibrary 'android.test.base'
+    signingConfigs {
+        localRelease {
+            if (releasePropertiesFile.exists()) {
+                storeFile rootProject.file(releaseProperties.getProperty('storeFile'))
+                storePassword releaseProperties.getProperty('storePassword')
+                keyAlias releaseProperties.getProperty('keyAlias')
+                keyPassword releaseProperties.getProperty('keyPassword')
+            }
+        }
+        debug {
+            storeFile rootProject.file('tools/signing/debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+    buildTypes {
+        debug { applicationIdSuffix '.debug' }
+        release {
+            minifyEnabled true
+            shrinkResources true
+            signingConfig signingConfigs.localRelease
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    buildFeatures { buildConfig true }
+    lint { abortOnError true }
+}
+
+dependencies { implementation project(':reader-core') }

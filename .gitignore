@@ -1,0 +1,16 @@
+.gradle/
+**/build/
+local.properties
+tools/downloads/
+tools/gradle-*/
+tools/gradle-user-home/
+tools/android-sdk/
+tools/android-user/
+tools/avd/
+tools/signing/
+tools/jdk*/
+tools/logs/
+dist/
+*.hprof
+.idea/
+*.iml

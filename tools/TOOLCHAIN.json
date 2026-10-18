@@ -1,0 +1,26 @@
+{
+  "javaMajor": 17,
+  "javaSourceCompatibility": 8,
+  "androidGradlePlugin": "8.6.1",
+  "minSdk": 27,
+  "compileSdk": 35,
+  "targetSdk": 35,
+  "sdkPlatformRevision": 2,
+  "buildTools": "34.0.0",
+  "gradle": {
+    "version": "8.7",
+    "url": "https://services.gradle.org/distributions/gradle-8.7-bin.zip",
+    "sha256": "544c35d6bd849ae8a5ed0bcea39ba677dc40f49df7d1835561582da2009b961d"
+  },
+  "commandLineTools": {
+    "version": "12.0",
+    "url": "https://dl.google.com/android/repository/commandlinetools-win-11076708_latest.zip",
+    "sha256": "4d6931209eebb1bfb7c7e8b240a6a3cb3ab24479ea294f3539429574b1eec862"
+  },
+  "platformTools": {
+    "version": "37.0.1",
+    "url": "https://dl.google.com/android/repository/platform-tools_r37.0.1-win.zip",
+    "sha256": "45f4d63113e895ebde0c90f194099a4676b6ac653bd28d54314a9e022bbc1a99"
+  },
+  "testImage": "system-images;android-27;default;x86"
+}

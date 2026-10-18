@@ -1,0 +1,92 @@
+1:
+UP code=8 KEYCODE\_1
+scan=2 repeat=0 unicode=49
+device=toshiba,tc3589x-keypad
+2:
+UP code=9 KEYCODE\_2
+scan=3 repeat=0 unicode=50
+device=toshiba,tc3589x-keypad
+3:
+UP code=10 KEYCODE\_3
+scan=4 repeat=0 unicode=51
+device=toshiba,tc3589x-keypad
+4:
+UP code=11 KEYCODE\_4
+scan=5 repeat=0 unicode=52
+device=toshiba,tc3589x-keypad
+5:
+UP code=12 KEYCODE\_5
+scan=6 repeat=0 unicode=53
+device=toshiba,tc3589x-keypad
+6:
+UP code=13 KEYCODE\_6
+scan=7 repeat=0 unicode=54
+device=toshiba,tc3589x-keypad
+7:
+UP code=14 KEYCODE\_7
+scan=8 repeat=0 unicode=55
+device=toshiba,tc3589x-keypad
+8:
+UP code=15 KEYCODE\_8
+scan=9 repeat=0 unicode=56
+device=toshiba,tc3589x-keypad
+9:
+UP code=16 KEYCODE\_9
+scan=10 repeat=0 unicode=57
+device=toshiba,tc3589x-keypad
+\*:
+UP code=17 KEYCODE\_STAR
+scan=758 repeat=0 unicode=42
+device=toshiba,tc3589x-keypad
+0:
+UP code=7 KEYCODE\_0
+scan=11 repeat=0 unicode=48
+device=toshiba,tc3589x-keypad
+\#:
+UP code=18 KEYCODE\_POUND
+scan=759 repeat=0 unicode=35
+device=toshiba,tc3589x-keypad
+上:
+UP code=19 KEYCODE\_DPAD\_UP
+scan=103 repeat=0 unicode=0
+device=toshiba,tc3589x-keypad
+右:
+UP code=22 KEYCODE\_DPAD\_RIGHT
+scan=106 repeat=0 unicode=0
+device=toshiba,tc3589x-keypad
+下:
+UP code=20 KEYCODE\_DPAD\_DOWN
+scan=108 repeat=0 unicode=0
+device=toshiba,tc3589x-keypad
+左:
+UP code=21 KEYCODE\_DPAD\_LEFT
+scan=105 repeat=0 unicode=0
+device=toshiba,tc3589x-keypad
+确认:
+UP code=23 KEYCODE\_DPAD\_CENTER
+scan=28 repeat=0 unicode=0
+device=toshiba,tc3589x-keypad
+拨号:
+UP code=5 KEYCODE\_CALL
+scan=169 repeat=0 unicode=0
+device=toshiba,tc3589x-keypad
+挂断:
+不可使用，会立刻退出
+清除:
+不可使用，会退出
+左上菜单：
+UP code=131 KEYCODE\_F1
+scan=752 repeat=0 unicode=0
+device=toshiba,tc3589x-keypad
+右上相机：
+UP code=132 KEYCODE\_F2
+scan=753 repeat=0 unicode=0
+device=toshiba,tc3589x-keypad
+左下邮件:
+UP code=133 KEYCODE\_F3
+scan=754 repeat=0 unicode=0
+device=toshiba,tc3589x-keypad
+右下网络:
+UP code=134 KEYCODE\_F4
+scan=755 repeat=0 unicode=0
+device=toshiba,tc3589x-keypad
