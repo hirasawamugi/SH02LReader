@@ -11,7 +11,7 @@ import java.io.*;
 abstract class NativeTestBase extends InstrumentationTestCase {
     MainActivity activity;
     interface Condition { boolean value(); }
-    void ui(Runnable action) { getInstrumentation().runOnMainSync(action); }
+    void ui(Runnable action) { if(android.os.Looper.myLooper()==android.os.Looper.getMainLooper())action.run();else getInstrumentation().runOnMainSync(action); }
     @Override protected void setUp() throws Exception {
         super.setUp();
         getInstrumentation().getTargetContext().getSharedPreferences("reader",0).edit().clear().commit();

@@ -34,8 +34,9 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     }
     private static final class Screen {
         final Kind kind; final List<Row> rows = new ArrayList<>();
-        int selected, group; String title; File directory;
-        Screen(Kind kind, String title) { this.kind = kind; this.title = title; }
+        int selected, group; String title; File directory;final String targetBookId;
+        Screen(Kind kind, String title) {this(kind,title,"");}
+        Screen(Kind kind,String title,String targetBookId) {this.kind=kind;this.title=title;this.targetBookId=targetBookId;}
     }
     private static final class Session {
         final BookRepository.Book book; final TextImporter.Result index; final TxtPaginator paginator;
@@ -212,7 +213,10 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         preferences.edit().putBoolean("reopen", false).apply(); loadLibrary(false);
     }
     private void menu() {
-        Screen screen = new Screen(Kind.MENU, "菜单");
+        Row selected=base().rows.isEmpty()?null:base().rows.get(bound(base().selected,0,base().rows.size()-1));
+        BookRepository.Book target=base().kind==Kind.LIBRARY&&selected!=null&&selected.value instanceof BookRepository.Book?(BookRepository.Book)selected.value:null;
+        Screen screen = new Screen(Kind.MENU,target==null?"菜单":target.title,target==null?"":target.id);
+        if(target!=null)screen.rows.add(new Row("cover","设置 / 更换封面",target.id));
         if (base().kind == Kind.READER && session != null) { screen.rows.add(new Row("contents", "目录")); screen.rows.add(new Row("bookmarks", "书签")); }
         else if (base().kind == Kind.LIBRARY) screen.rows.add(new Row("import", "导入 TXT"));
         if (base().kind == Kind.IMPORT) screen.rows.add(new Row("cancel-import", "取消导入"));
@@ -315,10 +319,9 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
                     library.rows.clear();
                     String lastId = preferences.getString("lastBook", ""); BookRepository.Book last = null;
                     for (BookRepository.Book book : books) if (book.id.equals(lastId)) last = book;
-                    if (last != null) library.rows.add(new Row("book", "继续阅读 · " + last.title, last));
+                    if (last != null) library.rows.add(new Row("book", last.title, last));
                     library.rows.add(new Row("import", "＋ 导入 TXT"));
-                    for (BookRepository.Book book : books) library.rows.add(new Row("book", book.title + "\n" + book.charset
-                            + " · " + size(book.sourceBytes), book));
+                    for (BookRepository.Book book : books)if(last==null||!last.id.equals(book.id))library.rows.add(new Row("book",book.title,book));
                     library.title = "书架 · " + books.size() + " 本"; restoreSelection(library, selectedId);
                     invalidateLists(); render();
                     if (pendingUri != null) { Uri uri = pendingUri; pendingUri = null; importUri(uri); }
@@ -651,7 +654,13 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         list.setDivider(null); list.setDividerHeight(dp(6)); list.setItemsCanFocus(false);
         list.setFocusable(true); list.setFocusableInTouchMode(true); list.setDefaultFocusHighlightEnabled(false);
         list.setSelector(android.R.color.transparent); list.setCacheColorHint(Color.TRANSPARENT);
-        list.setAdapter(new BaseAdapter() {
+        if(screen.kind==Kind.LIBRARY){
+            LibraryAdapter adapter=new LibraryAdapter(this,()->screen.selected,()->top()==screen&&resumed&&hasWindowFocus());
+            List<LibraryAdapter.Item> items=new ArrayList<>();String last=preferences.getString("lastBook","");
+            for(Row row:screen.rows){BookRepository.Book book=row.value instanceof BookRepository.Book?(BookRepository.Book)row.value:null;
+                items.add(new LibraryAdapter.Item(book,book!=null&&book.id.equals(last),book==null?0:livePositions.containsKey(book.id)?livePositions.get(book.id):book.offset));}
+            adapter.setItems(items);adapter.setStyle(bookStyle,Palette.forTheme(uiTheme));list.setAdapter(adapter);
+        }else list.setAdapter(new BaseAdapter() {
             public int getCount() { return screen.rows.size(); }
             public Row getItem(int position) { return screen.rows.get(position); }
             public long getItemId(int position) { return position; }
