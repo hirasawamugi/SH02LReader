@@ -11,11 +11,13 @@ import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.*;
 import android.provider.OpenableColumns;
+import android.provider.DocumentsContract;
 import android.util.Log;
 import android.view.*;
 import android.widget.*;
 import com.sh02l.reader.core.*;
 import com.sh02l.reader.core.text.TextImporter;
+import com.sh02l.reader.core.importing.*;
 import com.sh02l.reader.txt.TxtPaginator;
 import java.io.*;
 import java.util.*;
@@ -23,9 +25,9 @@ import java.util.*;
 /** One window, one key router, and bounded asynchronous TXT sessions. */
 public final class MainActivity extends Activity implements KeyRouter.Target {
     private enum Kind {
-        LIBRARY, SOURCES, FILES, IMPORT, READER, SETTINGS, HELP, DIAGNOSTICS,
+        LIBRARY, SOURCES, FILES, IMPORT, IMPORT_MODE, READER, SETTINGS, HELP, DIAGNOSTICS,
         MENU, CONTENTS, BOOKMARKS, EXIT;
-        boolean overlay() { return this==SETTINGS || this==HELP || this==MENU || this==CONTENTS || this==BOOKMARKS || this==EXIT; }
+        boolean overlay() { return this==SETTINGS || this==HELP || this==MENU || this==CONTENTS || this==BOOKMARKS || this==EXIT || this==IMPORT_MODE; }
     }
     private static final class Row {
         final String id, label; final Object value;
@@ -44,6 +46,15 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
             this.book = book; this.index = index;
             this.paginator = new TxtPaginator(new File(directory, "text.u16"), index.length);
         }
+    }
+    private enum ImportKind { TXT,COVER }
+    private static final class ImportRequest {
+        final ImportKind kind;final String targetBookId;
+        ImportRequest(ImportKind kind,String targetBookId){this.kind=kind;this.targetBookId=targetBookId;}
+    }
+    private static final class ExportRequest {
+        final File original;final String name,mime,sha256;
+        ExportRequest(File original,String name,String mime,String sha256){this.original=original;this.name=name;this.mime=mime;this.sha256=sha256;}
     }
     private final List<Screen> screens = new ArrayList<>();
     private final LatestWorker worker = new LatestWorker();
@@ -74,6 +85,11 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     private long anchor;
     private int pendingTurns;
     private Uri pendingUri;
+    private ImportRequest importRequest,pickerRequest,modeRequest,storagePermissionRequest;
+    private AndroidImportSource selectedImportSource;
+    private File selectedImportFile;
+    private ExportRequest pendingExport;
+    private String importCompletionNotice="";
     private final Map<String, Long> livePositions = new HashMap<>();
 
     @Override public void onCreate(Bundle savedState) {
@@ -151,6 +167,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         }
     }
     @Override public void perform(Action action) {
+        if(action!=Action.NONE)importCompletionNotice="";
         switch (action) {
             case UP: select(top().selected - 1); break;
             case DOWN: select(top().selected + 1); break;
@@ -197,6 +214,8 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     private void back() {
         if (screens.size() == 1) return;
         Screen removed = screens.remove(screens.size() - 1); context++;
+        if(removed.kind==Kind.IMPORT_MODE){selectedImportSource=null;selectedImportFile=null;modeRequest=null;}
+        if(removed.kind==Kind.SOURCES){importRequest=null;pickerRequest=null;storagePermissionRequest=null;}
         if (removed.kind == Kind.IMPORT || removed.kind == Kind.FILES || removed.kind == Kind.SOURCES) cancelWork();
         if (removed.kind == Kind.READER) {
             if (session != null) libraryReturnId = session.book.id;
@@ -206,6 +225,8 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     }
     private void closeOverlays() { while (top().kind.overlay()) back(); }
     private void goLibrary() {
+        pendingExport=null;
+        importRequest=null;pickerRequest=null;modeRequest=null;storagePermissionRequest=null;selectedImportSource=null;selectedImportFile=null;
         if (session != null) libraryReturnId = session.book.id;
         savePosition(); cancelWork();
         while (screens.size() > 1) screens.remove(screens.size() - 1);
@@ -216,7 +237,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         Row selected=base().rows.isEmpty()?null:base().rows.get(bound(base().selected,0,base().rows.size()-1));
         BookRepository.Book target=base().kind==Kind.LIBRARY&&selected!=null&&selected.value instanceof BookRepository.Book?(BookRepository.Book)selected.value:null;
         Screen screen = new Screen(Kind.MENU,target==null?"菜单":target.title,target==null?"":target.id);
-        if(target!=null)screen.rows.add(new Row("cover","设置 / 更换封面",target.id));
+        if(target!=null){screen.rows.add(new Row("cover","设置 / 更换封面",target.id));screen.rows.add(new Row("export-text","导出原 TXT",target.id));}
         if (base().kind == Kind.READER && session != null) { screen.rows.add(new Row("contents", "目录")); screen.rows.add(new Row("bookmarks", "书签")); }
         else if (base().kind == Kind.LIBRARY) screen.rows.add(new Row("import", "导入 TXT"));
         if (base().kind == Kind.IMPORT) screen.rows.add(new Row("cancel-import", "取消导入"));
@@ -224,6 +245,11 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         screen.rows.add(new Row("help", "按键说明"));
         if (session != null) screen.rows.add(new Row("library", "返回书架"));
         screen.rows.add(new Row("exit", "退出应用")); screen.rows.add(new Row("back", "关闭菜单")); push(screen);
+        if(target!=null){final long token=++generation;worker.submit(()->{
+            try{CoverStore.Record cover=new CoverStore(this).get(target.id);if(cover==null)return;
+                runOnUiThread(()->{if(!valid(token)||!screens.contains(screen))return;String selectedItem=selectedId(screen);screen.rows.add(screen.rows.size()-1,new Row("export-cover","导出封面原图",target.id));restoreSelection(screen,selectedItem);if(top()==screen)builtOverlay=null;render();});
+            }catch(IOException error){Log.w("SH02LReader","Cover metadata unavailable",error);}
+        });}
     }
     private void settings() {
         settingsGroup(0);
@@ -273,7 +299,15 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
             case "import": sources(); break;
             case "book": openBook((BookRepository.Book) row.value); break;
             case "directory": files((File) row.value); break;
-            case "file": importFile((File) row.value); break;
+            case "file": offerSource(AndroidImportSource.fromFile((File)row.value),(File)row.value,importRequest); break;
+            case "cover": sources(new ImportRequest(ImportKind.COVER,(String)row.value));break;
+            case "copy-import": {
+                AndroidImportSource source=selectedImportSource;File file=selectedImportFile;ImportRequest request=modeRequest;
+                if(source!=null&&request!=null){if(file!=null&&request.kind==ImportKind.TXT)importFile(file);else executeImport(source,ImportCoordinator.Mode.COPY,request);}break;
+            }
+            case "move-import": if(selectedImportSource!=null&&modeRequest!=null)executeImport(selectedImportSource,ImportCoordinator.Mode.MOVE,modeRequest);break;
+            case "export-text": exportOriginal((String)row.value,false);break;
+            case "export-cover": exportOriginal((String)row.value,true);break;
             case "shared": requestSharedStorage(); break;
             case "system-picker": systemPicker(); break;
             case "settings": settings(); break;
@@ -331,16 +365,21 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         });
     }
     private void sources() {
+        sources(new ImportRequest(ImportKind.TXT,""));
+    }
+    private void sources(ImportRequest request) {
         if (base().kind == Kind.IMPORT) { notice = "请先完成或取消当前导入"; return; }
-        closeOverlays(); Screen screen = new Screen(Kind.SOURCES, "导入 TXT");
+        pendingExport=null;
+        closeOverlays();importRequest=request;Screen screen = new Screen(Kind.SOURCES, request.kind==ImportKind.COVER?"导入封面":"导入 TXT");
         File importDirectory = getExternalFilesDir("import");
         if (importDirectory != null) { importDirectory.mkdirs(); screen.rows.add(new Row("directory", "应用导入文件夹", importDirectory)); }
         screen.rows.add(new Row("shared", "手机存储 / 内存卡"));
         screen.rows.add(new Row("system-picker", "系统文件选择")); screen.rows.add(new Row("back", "返回"));
-        push(screen); notice = "选择 TXT 后复制到私有书库，保留原文件";
+        push(screen); notice = "选择文件后可复制或移动导入；私有原件可从图书菜单导出";
     }
     private void requestSharedStorage() {
         if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            storagePermissionRequest=importRequest;
             requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 1); return;
         }
         sharedRoots();
@@ -361,6 +400,8 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     @Override public void onRequestPermissionsResult(int request, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(request, permissions, results);
         if (request == 1 && !destroyed) {
+            ImportRequest requested=storagePermissionRequest;storagePermissionRequest=null;
+            if(requested==null||requested!=importRequest||top().kind!=Kind.SOURCES)return;
             if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) sharedRoots();
             else notice = "未获得读取权限，可使用系统文件选择或应用导入文件夹";
             render();
@@ -368,13 +409,26 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     }
     private void systemPicker() {
         try {
-            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("text/*");
+            pickerRequest=importRequest;if(pickerRequest==null)return;
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(pickerRequest.kind==ImportKind.COVER?"image/*":"text/*")
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
             startActivityForResult(intent, 2);
-        } catch (ActivityNotFoundException error) { notice = "设备没有系统文件选择器，请使用手机存储入口"; }
+        } catch (ActivityNotFoundException error) {pickerRequest=null; notice = "设备没有系统文件选择器，请使用手机存储入口"; }
     }
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
-        if (request == 2 && result == RESULT_OK && data != null && data.getData() != null) importUri(data.getData());
+        if(request==2){ImportRequest selected=pickerRequest;pickerRequest=null;
+            if(selected!=null&&selected==importRequest&&result==RESULT_OK&&data!=null&&data.getData()!=null){
+                int grants=data.getFlags()&(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                if((data.getFlags()&Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)!=0)try{
+                    boolean read=(grants&Intent.FLAG_GRANT_READ_URI_PERMISSION)!=0,write=(grants&Intent.FLAG_GRANT_WRITE_URI_PERMISSION)!=0;
+                    if(read&&write)getContentResolver().takePersistableUriPermission(data.getData(),Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                    else if(read)getContentResolver().takePersistableUriPermission(data.getData(),Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    else if(write)getContentResolver().takePersistableUriPermission(data.getData(),Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                }catch(SecurityException ignored){}
+                offerSource(AndroidImportSource.fromUri(getContentResolver(),data.getData(),grants),null,selected);
+            }else if(selected!=null&&selected==importRequest)notice="已取消文件选择";render();
+        }else if(request==3){ExportRequest export=pendingExport;pendingExport=null;if(export==null)return;if(result==RESULT_OK&&data!=null&&data.getData()!=null)writeExport(export,data.getData(),data.getFlags());else{notice="已取消导出";render();}}
     }
     private void files(File directory) {
         // Directories replace the file screen while parent frames retain their exact selection.
@@ -384,9 +438,10 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         if (screens.size() >= 12) { notice = "目录层级过深，请用系统文件选择"; return; }
         screens.add(screen); context++; notice = "读取目录…";
         final long token = ++generation;
+        final boolean images=importRequest!=null&&importRequest.kind==ImportKind.COVER;
         worker.submit(() -> {
             try {
-                File[] entries = directory.listFiles(file -> file.isDirectory() || file.getName().toLowerCase(Locale.ROOT).endsWith(".txt"));
+                File[] entries = directory.listFiles(file -> {String name=file.getName().toLowerCase(Locale.ROOT);return file.isDirectory()||(images?(name.endsWith(".jpg")||name.endsWith(".jpeg")||name.endsWith(".png")||name.endsWith(".webp")):name.endsWith(".txt"));});
                 if (entries == null) throw new IOException("Cannot list directory");
                 if (entries.length > 10000) throw new IOException("Too many files; select a narrower folder");
                 Arrays.sort(entries, (left, right) -> {
@@ -398,56 +453,92 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
                         (file.isDirectory() ? "▸ " : "") + file.getName(), file));
                 runOnUiThread(() -> {
                     if (!valid(token) || !screens.contains(screen)) return;
-                    screen.rows.addAll(rows); notice = entries.length == 0 ? "此目录没有 TXT 文件" : "上下选择，确认打开";
+                    screen.rows.addAll(rows); notice = entries.length == 0 ? "此目录没有可导入文件" : "上下选择，确认打开";
                     invalidateLists(); render();
                 });
             } catch (Exception error) { fail(token, "目录不可读取，请返回并检查权限或内存卡", error); }
         });
         render();
     }
-    // Package access allows native tests to import only their own generated fixtures through the production path.
-    void importFile(File file) { startImport(file.getName(), () -> new FileInputStream(file), file.length()); }
-    private interface Source { InputStream open() throws IOException; }
+    // The file-copy action and native fixtures share the exact same production import path.
+    void importFile(File file) {ImportRequest request=new ImportRequest(ImportKind.TXT,"");importRequest=request;executeImport(AndroidImportSource.fromFile(file),ImportCoordinator.Mode.COPY,request);}
     private void importUri(Uri uri) {
         if (!"content".equals(uri.getScheme())) { notice = "仅支持通过文件提供程序打开 TXT"; render(); return; }
-        startImport("文档.txt", () -> getContentResolver().openInputStream(uri), -1, uri);
+        pendingExport=null;
+        ImportRequest request=new ImportRequest(ImportKind.TXT,"");importRequest=request;
+        offerSource(AndroidImportSource.fromUri(getContentResolver(),uri,getIntent().getFlags()),null,request);
     }
-    private void startImport(String name, Source source, long expected) { startImport(name, source, expected, null); }
-    private void startImport(String name, Source source, long expected, Uri uri) {
+    private void offerSource(AndroidImportSource source,File file,ImportRequest request) {
+        if(request==null)return;notice="读取文件信息…";final long token=++generation;
+        worker.submit(()->{try{source.snapshot();boolean move=source.canDelete();runOnUiThread(()->{
+            if(!valid(token)||request!=importRequest)return;selectedImportSource=source;selectedImportFile=file;modeRequest=request;
+            Screen screen=new Screen(Kind.IMPORT_MODE,source.displayName());screen.rows.add(new Row("copy-import","复制导入"));if(move)screen.rows.add(new Row("move-import","移动导入"));screen.rows.add(new Row("back","返回"));
+            notice=(move?"移动会在完整校验并提交后删除来源。":"此来源只读或无法可靠核验，可使用复制导入。")+"私有副本随卸载 / 清除数据移除，可从图书菜单导出。";push(screen);render();
+        });}catch(Exception error){fail(token,"文件不可读取，请检查授权或重新选择",error);}});render();
+    }
+    private void executeImport(AndroidImportSource source,ImportCoordinator.Mode mode,ImportRequest request) {
         if (base().kind == Kind.IMPORT) return;
+        pendingExport=null;
         savePosition(); cancelWork(); closeOverlays();
-        Screen screen = new Screen(Kind.IMPORT, "导入 TXT"); screen.rows.add(new Row("back", "取消导入")); push(screen);
-        notice = "准备导入：" + name; render();
+        Screen screen = new Screen(Kind.IMPORT, request.kind==ImportKind.COVER?"导入封面":"导入 TXT"); screen.rows.add(new Row("back", "取消导入")); push(screen);
+        notice = "准备导入：" + source.displayName(); render();
         final long token = ++generation;
         worker.submit(() -> {
             try {
-                String displayName = name; long sourceSize = expected;
-                if (uri != null) try (Cursor cursor = getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE}, null, null, null)) {
-                    if (cursor != null && cursor.moveToFirst()) {
-                        int n = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME), s = cursor.getColumnIndex(OpenableColumns.SIZE);
-                        if (n >= 0) displayName = cursor.getString(n);
-                        if (s >= 0 && !cursor.isNull(s)) sourceSize = cursor.getLong(s);
-                    }
-                }
-                if (sourceSize > 0 && (sourceSize > Long.MAX_VALUE / 4 || getFilesDir().getUsableSpace() < sourceSize * 4 + 8 * 1024 * 1024))
-                    throw new IOException("Insufficient free space");
+                ImportCoordinator coordinator=new ImportCoordinator(new SpaceGuard(()->getFilesDir().getUsableSpace(),8L*1024*1024));
                 final long[] last = {0};
-                InputStream input = source.open(); if (input == null) throw new IOException("Source unavailable");
-                BookRepository.Book book = repository.importBook(input, displayName, new TextImporter.Observer() {
+                TextImporter.Observer observer=new TextImporter.Observer() {
                     public boolean cancelled() { return Thread.currentThread().isInterrupted(); }
                     public void progress(String phase, long bytes) {
                         long now = SystemClock.uptimeMillis(); if (now - last[0] < 200) return; last[0] = now;
                         String label = "copy".equals(phase) ? "复制" : "encoding".equals(phase) ? "识别编码" : "decode".equals(phase) ? "建立正文索引" : "保存";
                         runOnUiThread(() -> { if (valid(token)) { notice = label + " · " + size(bytes) + "　F2 取消"; render(); } });
                     }
-                });
+                };
+                ImportCoordinator.Outcome outcome=coordinator.run(source,mode,new ImportCoordinator.Committer(){
+                    public long peakBytes(long known)throws IOException{if(request.kind==ImportKind.TXT)return ImportCoordinator.Committer.super.peakBytes(known);try{return known<0?1024*1024:Math.addExact(known,1024*1024);}catch(ArithmeticException error){throw new IOException("Import budget overflow",error);}}
+                    public ImportCoordinator.CommittedAsset commit(ImportSource input,TextImporter.Observer guarded)throws IOException{
+                        if(request.kind==ImportKind.TXT){BookRepository.Book book=repository.importBook(input.open(),source.displayName(),guarded);return new ImportCoordinator.CommittedAsset(book.id,new File(repository.directory(book.id),"original.bin"),book.id);}
+                        if(repository.get(request.targetBookId)==null)throw new IOException("Cover target unavailable");CoverStore.Record cover=new CoverStore(MainActivity.this).importCover(request.targetBookId,input.open(),source.displayName(),guarded);
+                        return new ImportCoordinator.CommittedAsset(cover.bookId,cover.original,cover.sha256);
+                    }
+                },observer);
+                BookRepository.Book book=request.kind==ImportKind.TXT?repository.get(outcome.assetId):null;
                 runOnUiThread(() -> {
                     if (!valid(token)) return;
+                    String result=outcome.status==ImportCoordinator.Status.MOVED?"移动完成":outcome.status==ImportCoordinator.Status.COPIED_SOURCE_RETAINED?"导入完成，原文件未删除":"导入完成";
                     while (screens.size() > 1) screens.remove(screens.size() - 1);
-                    context++; notice = "导入完成 · " + book.charset; openBook(book);
+                    context++;importRequest=null;modeRequest=null;selectedImportSource=null;selectedImportFile=null;
+                    if(book!=null){openBook(book);importCompletionNotice=result;notice=result;}
+                    else{libraryReturnId=request.targetBookId;goLibrary();notice=result;}
+                    Toast.makeText(MainActivity.this,result,Toast.LENGTH_LONG).show();render();
                 });
             } catch (Exception error) { fail(token, "导入失败：请检查文本编码、权限和可用空间；原文件未改动", error); }
         });
+    }
+    private void exportOriginal(String id,boolean cover) {
+        Screen origin=top();final long token=++generation;notice="准备导出原件…";
+        worker.submit(()->{try{
+            ExportRequest request;
+            if(cover){CoverStore.Record record=new CoverStore(this).get(id);if(record==null||!record.sha256.equals(CoverStore.hash(record.original)))throw new IOException("Cover original unavailable");request=new ExportRequest(record.original,record.name,record.mime,record.sha256);}
+            else{BookRepository.Book book=repository.get(id);if(book==null)throw new IOException("Book unavailable");request=new ExportRequest(repository.original(id),book.title+".txt","text/plain",id);}
+            runOnUiThread(()->{if(!valid(token)||top()!=origin)return;try{pendingExport=request;startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(request.mime).putExtra(Intent.EXTRA_TITLE,request.name).addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION|Intent.FLAG_GRANT_READ_URI_PERMISSION),3);}catch(ActivityNotFoundException error){pendingExport=null;notice="设备没有可用的系统导出入口";render();}});
+        }catch(Exception error){fail(token,"原件不可读取，无法导出",error);}});
+    }
+    private void writeExport(ExportRequest request,Uri destination,int grants) {
+        if(!"content".equals(destination.getScheme())){notice="请选择系统文档目标";render();return;}
+        final long token=++generation;notice="正在导出原件…";render();worker.submit(()->{
+            try{if(!request.sha256.equals(ImportCoordinator.sha256(request.original)))throw new IOException("Original changed");
+                OriginalExporter.copy(request.original,getContentResolver().openOutputStream(destination,"w"),null);
+                runOnUiThread(()->{if(!valid(token))return;notice="原件导出完成";if(top().kind==Kind.MENU)back();Toast.makeText(this,"原件导出完成",Toast.LENGTH_LONG).show();render();});
+            }catch(Exception error){boolean removed=cleanupFailedExport(destination,grants);runOnUiThread(()->{if(!valid(token))return;notice=removed?"导出失败，已清理不完整文件":"导出失败，目标文件可能不完整";Toast.makeText(this,notice,Toast.LENGTH_LONG).show();render();});}
+        });
+    }
+    private boolean cleanupFailedExport(Uri destination,int grants) {
+        if((grants&Intent.FLAG_GRANT_WRITE_URI_PERMISSION)==0)return false;
+        try(Cursor cursor=getContentResolver().query(destination,new String[]{DocumentsContract.Document.COLUMN_FLAGS},null,null,null)){
+            if(cursor!=null&&cursor.moveToFirst()&&(cursor.getInt(0)&DocumentsContract.Document.FLAG_SUPPORTS_DELETE)!=0)return DocumentsContract.deleteDocument(getContentResolver(),destination);
+        }catch(Exception ignored){}return false;
     }
     private void openBook(BookRepository.Book book) {
         savePosition(); cancelWork();
@@ -507,7 +598,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         runOnUiThread(() -> {
             if (!valid(token) || session != target) return;
             page = result; anchor = result.start; layoutBusy = false;
-            notice = boundary ? result.start == 0 ? "已经是第一页" : "已经是最后一页" : target.book.length == 0 ? "这是空文本" : "";
+            notice = !importCompletionNotice.isEmpty()?importCompletionNotice:boundary ? result.start == 0 ? "已经是第一页" : "已经是最后一页" : target.book.length == 0 ? "这是空文本" : "";
             savePosition(); render(); pumpTurns();
         });
     }
@@ -560,7 +651,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         });
     }
     private void cancelWork() { generation++; worker.cancel(); layoutBusy = false; pendingTurns = 0; }
-    private boolean valid(long token) { return !destroyed && generation == token; }
+    private boolean valid(long token) { return !destroyed && !isFinishing() && generation == token; }
     private void fail(long token, String message, Exception error) {
         if (error instanceof InterruptedIOException || Thread.currentThread().isInterrupted()) return;
         Log.e("SH02LReader", message, error);
@@ -576,7 +667,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     }
 
     private void render() {
-        if (destroyed) return;
+        if (destroyed || isFinishing()) return;
         Screen content = base();Palette palette=Palette.forTheme(content.kind==Kind.READER?theme:uiTheme);
         background=palette.background;foreground=palette.foreground;secondary=palette.secondary;surface=palette.surface;
         String style = content.kind==Kind.READER ? "reader:"+theme+":"+fontSize+":"+infoVisible : "ui:"+uiTheme+":"+bookStyle;
@@ -641,10 +732,11 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         FrameLayout shade = new FrameLayout(this); shade.setTag("overlay"); shade.setBackgroundColor(0x99000000); shade.setClickable(true);
         LinearLayout panel = vertical(); panel.setPadding(dp(12), dp(12), dp(12), dp(10)); panel.setBackground(round(palette.surface));
         TextView title=style.title(screen.title);panel.addView(title);
+        if(screen.kind==Kind.IMPORT_MODE){TextView explanation=text(notice,12,palette.secondary);explanation.setPadding(0,0,0,dp(10));panel.addView(explanation);}
         if(screen.kind==Kind.HELP)panel.addView(text("↑↓ 选择，确认打开。F1 菜单，F2/F4 返回。正文：方向键翻页，0 帮助。",12,palette.secondary));
         overlayList = list(screen); panel.addView(overlayList, new LinearLayout.LayoutParams(-1, 0, 1));
         SoftKeyBar footer=new SoftKeyBar(this);footer.setHints("↑↓ 选择","确认 执行","F2 返回",palette);panel.addView(footer);
-        int height = Math.min((root.getHeight()>0?root.getHeight():getResources().getDisplayMetrics().heightPixels) - dp(40), Math.min(8,screen.rows.size())*(style.rowHeight(64)+dp(6))+dp(100));
+        int height = Math.min((root.getHeight()>0?root.getHeight():getResources().getDisplayMetrics().heightPixels) - dp(40), Math.min(8,screen.rows.size())*(style.rowHeight(64)+dp(6))+dp(screen.kind==Kind.IMPORT_MODE?196:100));
         FrameLayout.LayoutParams parameters = new FrameLayout.LayoutParams(-1, Math.max(dp(180), height), Gravity.CENTER);
         parameters.setMargins(dp(16), dp(20), dp(16), dp(20)); shade.addView(panel, parameters);
         overlayHost.addView(shade, new FrameLayout.LayoutParams(-1, -1));
@@ -720,7 +812,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     long readingEnd() { return page == null ? -1 : page.end; }
     String readingText() { return page == null ? "" : page.text(); }
     boolean positionCommitted() { return session != null && committedBook.equals(session.book.id) && committedOffset == anchor; }
-    boolean readingReady() { return session != null && page != null && !layoutBusy && page.spec.equals(requestedSpec); }
+    boolean readingReady() { return base().kind==Kind.READER && session != null && page != null && !layoutBusy && page.spec.equals(requestedSpec); }
     String screenKind() { return top().kind.name(); }
     @Override public void onWindowFocusChanged(boolean focused) {
         super.onWindowFocusChanged(focused); if (router == null) return;

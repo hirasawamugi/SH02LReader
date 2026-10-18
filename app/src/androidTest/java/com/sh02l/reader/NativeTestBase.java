@@ -21,7 +21,7 @@ abstract class NativeTestBase extends InstrumentationTestCase {
         ui(()->activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON));
         await(()->find("list:LIBRARY")!=null && listCount()>0,15000);
     }
-    @Override protected void tearDown() throws Exception { ui(()->activity.finish()); getInstrumentation().waitForIdleSync(); super.tearDown(); }
+    @Override protected void tearDown() throws Exception { ui(()->activity.finish());await(()->activity.isDestroyed(),5000); getInstrumentation().waitForIdleSync(); super.tearDown(); }
     View find(String tag) { final View[] result={null}; ui(()->result[0]=activity.getWindow().getDecorView().findViewWithTag(tag)); return result[0]; }
     String kind() { final String[] value={null}; ui(()->value[0]=activity.screenKind()); return value[0]; }
     int listCount() { final int[] value={0}; ui(()->{ListView list=activity.getWindow().getDecorView().findViewWithTag("list:"+activity.screenKind()); if(list!=null)value[0]=list.getCount();}); return value[0]; }
