@@ -52,6 +52,8 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     private ProgressWriter progressWriter;
     private DiagnosticStore diagnosticStore;
     private SharedPreferences preferences;
+    private AppearanceStore appearanceStore;
+    private int uiTheme, bookStyle;
     private FrameLayout root, overlayHost;
     private Screen builtBase, builtOverlay;
     private ListView baseList, overlayList;
@@ -77,7 +79,9 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         // Carry the real device's M0 appearance forward, but never treat sample page numbers as book locators.
         ReaderModel prototype = ReaderModel.restore(getSharedPreferences("prototype", MODE_PRIVATE).getString("state", null));
         fontSize = bound(preferences.getInt("font", prototype.fontSize()), 14, 32);
-        theme = bound(preferences.getInt("theme", prototype.theme()), 0, 2);
+        appearanceStore = new AppearanceStore(this);
+        AppearanceState appearance = appearanceStore.load(AppearanceStore.integer(preferences,"theme",prototype.theme()));
+        theme = appearance.readerTheme; uiTheme = appearance.uiTheme; bookStyle = appearance.bookStyle;
         brightness = bound(preferences.getInt("brightness", prototype.brightness()), 1, 10);
         infoVisible = preferences.getBoolean("info", prototype.infoVisible());
         repository = BookRepository.obtain(this);
@@ -245,6 +249,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         requestedSpec = null; pendingTurns = 0;
     }
     private void saveSettings() {
+        appearanceStore.save(new AppearanceState(uiTheme,theme,bookStyle));
         preferences.edit().putInt("font", fontSize).putInt("theme", theme).putInt("brightness", brightness)
                 .putBoolean("info", infoVisible).apply();
     }
