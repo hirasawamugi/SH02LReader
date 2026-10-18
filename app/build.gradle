@@ -54,3 +54,18 @@ android {
 }
 
 dependencies { implementation project(':engine-txt') }
+
+// AGP 8.6.1 assumes .git is a directory and misses linked worktrees/packed refs.
+// Resolve with Git itself, and make a new checkout revision invalidate the build stamp.
+def checkedOutRevision = providers.exec {
+    workingDir rootProject.projectDir
+    commandLine 'git', 'rev-parse', '--verify', 'HEAD'
+}.standardOutput.asText.map { it.trim() }
+tasks.withType(com.android.build.gradle.internal.tasks.ExtractVersionControlInfoTask).configureEach {
+    inputs.property('checkedOutRevision', checkedOutRevision)
+    doLast {
+        def revision = checkedOutRevision.get()
+        if (!(revision ==~ /[0-9a-f]{40}/)) throw new GradleException('Invalid source revision')
+        vcInfoFile.get().asFile.setText('repositories {\n  system: GIT\n  local_root_path: "$PROJECT_DIR"\n  revision: "' + revision + '"\n}\n', 'UTF-8')
+    }
+}
