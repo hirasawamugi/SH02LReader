@@ -25,7 +25,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     private enum Kind {
         LIBRARY, SOURCES, FILES, IMPORT, READER, SETTINGS, HELP, DIAGNOSTICS,
         MENU, CONTENTS, BOOKMARKS, EXIT;
-        boolean overlay() { return ordinal() >= MENU.ordinal(); }
+        boolean overlay() { return this==SETTINGS || this==HELP || this==MENU || this==CONTENTS || this==BOOKMARKS || this==EXIT; }
     }
     private static final class Row {
         final String id, label; final Object value;
@@ -34,7 +34,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     }
     private static final class Screen {
         final Kind kind; final List<Row> rows = new ArrayList<>();
-        int selected; String title; File directory;
+        int selected, group; String title; File directory;
         Screen(Kind kind, String title) { this.kind = kind; this.title = title; }
     }
     private static final class Session {
@@ -63,6 +63,8 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     private String committedBook = "", notice = "F3 导入 TXT，确认打开图书";
     private String libraryReturnId = "";
     private String builtStyle = "";
+    private int builtOverlayTheme=-1;
+    private boolean resumed;
     private int fontSize, theme, brightness, foreground, secondary, background, surface;
     private boolean infoVisible, layoutBusy, loadingLibrary, destroyed;
     private Session session;
@@ -188,7 +190,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     @Override public void onBackPressed() { if (top().kind == Kind.LIBRARY) menu(); else back(); render(); }
     private void select(int selected) { top().selected = bound(selected, 0, Math.max(0, top().rows.size() - 1)); }
     private void push(Screen screen) {
-        if (top().kind == screen.kind || screens.size() >= 12) return;
+        if ((top().kind == screen.kind && screen.kind != Kind.SETTINGS) || screens.size() >= 12) return;
         screens.add(screen); context++;
     }
     private void back() {
@@ -220,21 +222,25 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         screen.rows.add(new Row("exit", "退出应用")); screen.rows.add(new Row("back", "关闭菜单")); push(screen);
     }
     private void settings() {
-        Screen screen = new Screen(Kind.SETTINGS, "阅读设置");
-        screen.rows.add(new Row("font", "")); screen.rows.add(new Row("theme", ""));
-        screen.rows.add(new Row("brightness", "")); screen.rows.add(new Row("info", ""));
-        screen.rows.add(new Row("back", "返回")); push(screen); refreshSettings(screen);
+        settingsGroup(0);
+    }
+    private void settingsGroup(int group) {
+        Screen screen=new Screen(Kind.SETTINGS,group==1?"界面外观":group==2?"正文阅读":"设置");screen.group=group;
+        refreshSettings(screen);push(screen);
     }
     private void refreshSettings(Screen screen) {
         if (screen.kind != Kind.SETTINGS) return;
-        screen.rows.set(0, new Row("font", "字号：" + fontSize));
-        screen.rows.set(1, new Row("theme", "主题：" + new String[]{"暖色", "浅色", "深色"}[theme]));
-        screen.rows.set(2, new Row("brightness", "应用亮度：" + brightness * 10 + "%"));
-        screen.rows.set(3, new Row("info", "阅读信息栏：" + (infoVisible ? "显示" : "隐藏")));
+        screen.rows.clear();
+        String[] colors={"米白","柔白","暖炭灰"};
+        if(screen.group==0){screen.rows.add(new Row("appearance","界面外观"));screen.rows.add(new Row("reading-settings","正文阅读"));screen.rows.add(new Row("help","按键说明"));}
+        else if(screen.group==1){screen.rows.add(new Row("ui-theme","界面主题："+colors[uiTheme]));screen.rows.add(new Row("shelf-style","书架样式："+new String[]{"纯文字","小书标","独立封面"}[bookStyle]));}
+        else {screen.rows.add(new Row("theme","阅读配色："+colors[theme]));screen.rows.add(new Row("font","字号："+fontSize));screen.rows.add(new Row("brightness","窗口亮度："+brightness*10+"%"));screen.rows.add(new Row("info","阅读信息栏："+(infoVisible?"显示":"隐藏")));}
     }
     private void adjust(int direction) {
         if (top().rows.isEmpty()) return;
         switch (top().rows.get(top().selected).id) {
+            case "ui-theme": uiTheme=(uiTheme+direction+3)%3;saveSettings();refreshSettings(top());return;
+            case "shelf-style": bookStyle=(bookStyle+direction+3)%3;saveSettings();refreshSettings(top());return;
             case "font": fontSize = bound(fontSize + direction, 14, 32); break;
             case "theme": theme = (theme + direction + 3) % 3; break;
             case "brightness": brightness = bound(brightness + direction, 1, 10); break;
@@ -267,6 +273,8 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
             case "shared": requestSharedStorage(); break;
             case "system-picker": systemPicker(); break;
             case "settings": settings(); break;
+            case "appearance": settingsGroup(1);break;
+            case "reading-settings": settingsGroup(2);break;
             case "diagnostics": {
                 Screen screen = new Screen(Kind.DIAGNOSTICS, "按键诊断");
                 screen.rows.add(new Row("save-log", "保存诊断记录")); screen.rows.add(new Row("back", "返回")); push(screen); break;
@@ -276,7 +284,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
             case "bookmarks": bookmarks(); break;
             case "chapter": closeOverlays(); seek(((TextImporter.Chapter) row.value).offset); break;
             case "bookmark-add": addBookmark(); break;
-            case "font": case "theme": case "brightness": case "info": adjust(1); break;
+            case "font": case "theme": case "brightness": case "info": case "ui-theme": case "shelf-style": adjust(1); break;
             case "library": goLibrary(); break;
             case "cancel-import": closeOverlays(); back(); break;
             case "back": back(); break;
@@ -464,7 +472,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     private void requestLayoutIfReady() {
         if (session == null || pageView == null || pageView.getWidth() < 1 || pageView.getHeight() < 1) return;
         TxtPaginator.Spec spec = new TxtPaginator.Spec(pageView.getWidth(), pageView.getHeight(),
-                fontSize * getResources().getDisplayMetrics().scaledDensity, dp(4), foreground);
+                fontSize * getResources().getDisplayMetrics().scaledDensity, dp(4), Palette.forTheme(theme).foreground);
         if (spec.equals(requestedSpec)) { if (page != null && spec.equals(page.spec)) pageView.show(page); return; }
         int queued = pendingTurns;
         requestedSpec = spec; seek(anchor); pendingTurns = queued;
@@ -566,11 +574,10 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
 
     private void render() {
         if (destroyed) return;
-        background = Color.parseColor(theme == 2 ? "#17212B" : theme == 1 ? "#FAFBFD" : "#F4F1E9");
-        foreground = Color.parseColor(theme == 2 ? "#EDF2F7" : "#202C38");
-        secondary = Color.parseColor(theme == 2 ? "#ADBCCB" : "#596A79");
-        surface = Color.parseColor(theme == 2 ? "#243241" : "#FFFFFF");
-        Screen content = base(); String style = theme + ":" + fontSize + ":" + infoVisible;
+        Screen content = base();Palette palette=Palette.forTheme(content.kind==Kind.READER?theme:uiTheme);
+        background=palette.background;foreground=palette.foreground;secondary=palette.secondary;surface=palette.surface;
+        String style = content.kind==Kind.READER ? "reader:"+theme+":"+fontSize+":"+infoVisible : "ui:"+uiTheme+":"+bookStyle;
+        if(builtOverlayTheme!=uiTheme){builtOverlay=null;builtOverlayTheme=uiTheme;}
         if (builtBase != content || !style.equals(builtStyle)) {
             builtBase = content; builtStyle = style; builtOverlay = null;
             root.removeAllViews(); root.setBackgroundColor(background);
@@ -582,6 +589,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
             if (builtOverlay != top()) { overlayHost.removeAllViews(); buildOverlay(top()); builtOverlay = top(); }
         } else { overlayHost.removeAllViews(); builtOverlay = null; overlayList = null; }
         ListView active = top().kind.overlay() ? overlayList : baseList;
+        if(baseList!=null)((BaseAdapter)baseList.getAdapter()).notifyDataSetChanged();
         if (baseList != null) baseList.setFocusable(!top().kind.overlay());
         if (pageView != null) pageView.setFocusable(!top().kind.overlay() && top().kind == Kind.READER);
         if (active != null) {
@@ -599,9 +607,8 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     }
     private View buildContent(Screen screen) {
         LinearLayout column = vertical(); column.setPadding(dp(12), dp(10), dp(12), dp(6));
-        TextView title = text(screen.title, screen.kind == Kind.READER ? 14 : 22, foreground);
-        title.setTag("screen-title"); title.setTypeface(null, Typeface.BOLD); title.setMaxLines(screen.kind == Kind.READER ? 1 : 2);
-        title.setPadding(0, 0, 0, dp(8)); column.addView(title);
+        TextView title = new UiStyle(this,Palette.forTheme(screen.kind==Kind.READER?theme:uiTheme)).title(screen.title);
+        title.setTag("screen-title");if(screen.kind==Kind.READER)title.setTextSize(12);column.addView(title);
         if (screen.kind == Kind.READER) {
             pageView = new PageView(this, (width, height) -> { if (!destroyed) requestLayoutIfReady(); }, secondary);
             column.addView(pageView, new LinearLayout.LayoutParams(-1, 0, 1));
@@ -621,24 +628,27 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         noticeView = text(notice, 11, secondary); noticeView.setTag("notice"); noticeView.setMaxLines(3);
         if (screen.kind == Kind.READER) { noticeView.setLines(1); noticeView.setEllipsize(android.text.TextUtils.TruncateAt.END); }
         noticeView.setPadding(0, dp(4), 0, dp(3)); column.addView(noticeView);
-        String footer = screen.kind == Kind.READER ? "F1 菜单  F2 保持  F3 菜单  F4 书架"
-                : screen.kind == Kind.LIBRARY ? "↑↓ 选择  确认 打开  F3 导入" : "↑↓ 选择  确认 打开  F2 返回";
-        column.addView(text(footer, 11, secondary)); return column;
+        SoftKeyBar footer=new SoftKeyBar(this);Palette colors=Palette.forTheme(screen.kind==Kind.READER?theme:uiTheme);
+        footer.setHints(screen.kind==Kind.READER?"F1 菜单":"↑↓ 选择",screen.kind==Kind.READER?"0 帮助":"确认 打开",screen.kind==Kind.LIBRARY?"F3 导入":screen.kind==Kind.READER?"F4 书架":"F2 返回",colors);
+        column.addView(footer);return column;
     }
     private void buildOverlay(Screen screen) {
+        Palette palette=Palette.forTheme(uiTheme);UiStyle style=new UiStyle(this,palette);
         FrameLayout shade = new FrameLayout(this); shade.setTag("overlay"); shade.setBackgroundColor(0x99000000); shade.setClickable(true);
-        LinearLayout panel = vertical(); panel.setPadding(dp(12), dp(12), dp(12), dp(10)); panel.setBackground(round(surface));
-        TextView title = text(screen.title, 21, foreground); title.setPadding(0, 0, 0, dp(10)); panel.addView(title);
+        LinearLayout panel = vertical(); panel.setPadding(dp(12), dp(12), dp(12), dp(10)); panel.setBackground(round(palette.surface));
+        TextView title=style.title(screen.title);panel.addView(title);
+        if(screen.kind==Kind.HELP)panel.addView(text("↑↓ 选择，确认打开。F1 菜单，F2/F4 返回。正文：方向键翻页，0 帮助。",12,palette.secondary));
         overlayList = list(screen); panel.addView(overlayList, new LinearLayout.LayoutParams(-1, 0, 1));
-        panel.addView(text("↑↓ 选择  确认 执行  F2 关闭", 11, secondary));
-        int height = Math.min(getResources().getDisplayMetrics().heightPixels - dp(56), dp(Math.min(8, screen.rows.size()) * 52 + 100));
+        SoftKeyBar footer=new SoftKeyBar(this);footer.setHints("↑↓ 选择","确认 执行","F2 返回",palette);panel.addView(footer);
+        int height = Math.min((root.getHeight()>0?root.getHeight():getResources().getDisplayMetrics().heightPixels) - dp(40), Math.min(8,screen.rows.size())*(style.rowHeight(64)+dp(6))+dp(100));
         FrameLayout.LayoutParams parameters = new FrameLayout.LayoutParams(-1, Math.max(dp(180), height), Gravity.CENTER);
         parameters.setMargins(dp(16), dp(20), dp(16), dp(20)); shade.addView(panel, parameters);
         overlayHost.addView(shade, new FrameLayout.LayoutParams(-1, -1));
     }
     private ListView list(Screen screen) {
+        UiStyle style=new UiStyle(this,Palette.forTheme(uiTheme));
         ListView list = new ListView(this); list.setTag("list:" + screen.kind.name());
-        list.setDivider(null); list.setDividerHeight(dp(5)); list.setItemsCanFocus(false);
+        list.setDivider(null); list.setDividerHeight(dp(6)); list.setItemsCanFocus(false);
         list.setFocusable(true); list.setFocusableInTouchMode(true); list.setDefaultFocusHighlightEnabled(false);
         list.setSelector(android.R.color.transparent); list.setCacheColorHint(Color.TRANSPARENT);
         list.setAdapter(new BaseAdapter() {
@@ -646,12 +656,8 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
             public Row getItem(int position) { return screen.rows.get(position); }
             public long getItemId(int position) { return position; }
             public View getView(int position, View convert, ViewGroup parent) {
-                TextView row = convert instanceof TextView ? (TextView) convert : text("", 17, foreground);
-                Row item = getItem(position); row.setTag("item:" + item.id); row.setText(item.label);
-                row.setTextColor(position == screen.selected ? Color.WHITE : foreground);
-                row.setTypeface(null, position == screen.selected ? Typeface.BOLD : Typeface.NORMAL);
-                row.setBackground(round(position == screen.selected ? 0xff2464a8 : surface));
-                row.setGravity(Gravity.CENTER_VERTICAL); row.setMinHeight(dp(46)); row.setPadding(dp(10), dp(8), dp(10), dp(8));
+                TextView row=convert instanceof UiStyle.Label?(TextView)convert:style.actionRow("",false);
+                Row item=getItem(position);row.setTag("item:"+item.id);style.bind(row,item.label,position==screen.selected,top()==screen&&resumed&&hasWindowFocus());
                 row.setFocusable(false); return row;
             }
         });
@@ -693,7 +699,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         TextView view = new TextView(this); view.setText(value); view.setTextSize(size); view.setTextColor(color); return view;
     }
     private TextView paragraph(String value) { TextView view = text(value, 13, secondary); view.setPadding(0, 0, 0, dp(10)); return view; }
-    private GradientDrawable round(int color) { GradientDrawable result = new GradientDrawable(); result.setColor(color); result.setCornerRadius(dp(5)); return result; }
+    private GradientDrawable round(int color) { GradientDrawable result = new GradientDrawable(); result.setColor(color); result.setCornerRadius(dp(12)); return result; }
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
     // Immutable observations used by instrumentation; no test-only behavior in production navigation.
     long readingOffset() { return page == null ? -1 : anchor; }
@@ -704,13 +710,14 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     String screenKind() { return top().kind.name(); }
     @Override public void onWindowFocusChanged(boolean focused) {
         super.onWindowFocusChanged(focused); if (router == null) return;
-        if (!focused) router.reset(); else { windowPolicy(); render(); }
+        if (!focused) {router.reset();UiStyle.pauseMarquees(root);} else { windowPolicy(); render(); }
         diagnostics.append("window-focus=" + focused);
     }
     @Override protected void onPause() {
-        super.onPause(); router.reset(); savePosition(); saveSettings();
+        resumed=false;UiStyle.pauseMarquees(root);super.onPause(); router.reset(); savePosition(); saveSettings();
         diagnosticStore.save(snapshot(), null);
     }
+    @Override protected void onResume() {super.onResume();resumed=true;if(root!=null)render();}
     @Override protected void onDestroy() {
         destroyed = true; generation++; worker.close(); progressWriter.close(); diagnosticStore.close();
         // The application-scoped database remains available while outstanding durable writes finish.

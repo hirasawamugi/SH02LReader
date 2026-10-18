@@ -24,6 +24,7 @@ final class PageView extends View {
         this.page = page; message = null; setContentDescription("正文\n" + page.text()); invalidate();
     }
     void message(String value) { page = null; message = value; invalidate(); }
+    void setHintColor(int color) { hint.setColor(color); invalidate(); }
     @Override protected void onSizeChanged(int width, int height, int oldWidth, int oldHeight) {
         super.onSizeChanged(width, height, oldWidth, oldHeight);
         if (width > 0 && height > 0) listener.changed(width, height);
