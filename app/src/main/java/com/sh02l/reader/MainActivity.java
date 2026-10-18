@@ -583,6 +583,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         if(builtOverlayTheme!=uiTheme){builtOverlay=null;builtOverlayTheme=uiTheme;}
         if (builtBase != content || !style.equals(builtStyle)) {
             builtBase = content; builtStyle = style; builtOverlay = null;
+            if(baseList!=null&&baseList.getAdapter() instanceof LibraryAdapter)((LibraryAdapter)baseList.getAdapter()).close();
             root.removeAllViews(); root.setBackgroundColor(background);
             pageView = null; baseList = null; overlayList = null; diagnosticView = infoView = noticeView = null;
             root.addView(buildContent(content), new FrameLayout.LayoutParams(-1, -1));
@@ -592,7 +593,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
             if (builtOverlay != top()) { overlayHost.removeAllViews(); buildOverlay(top()); builtOverlay = top(); }
         } else { overlayHost.removeAllViews(); builtOverlay = null; overlayList = null; }
         ListView active = top().kind.overlay() ? overlayList : baseList;
-        if(baseList!=null)((BaseAdapter)baseList.getAdapter()).notifyDataSetChanged();
+        if(baseList!=null){if(baseList.getAdapter() instanceof LibraryAdapter)((LibraryAdapter)baseList.getAdapter()).setSelectedBook(selectedId(content));((BaseAdapter)baseList.getAdapter()).notifyDataSetChanged();}
         if (baseList != null) baseList.setFocusable(!top().kind.overlay());
         if (pageView != null) pageView.setFocusable(!top().kind.overlay() && top().kind == Kind.READER);
         if (active != null) {
@@ -660,6 +661,10 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
             for(Row row:screen.rows){BookRepository.Book book=row.value instanceof BookRepository.Book?(BookRepository.Book)row.value:null;
                 items.add(new LibraryAdapter.Item(book,book!=null&&book.id.equals(last),book==null?0:livePositions.containsKey(book.id)?livePositions.get(book.id):book.offset));}
             adapter.setItems(items);adapter.setStyle(bookStyle,Palette.forTheme(uiTheme));list.setAdapter(adapter);
+            list.setOnScrollListener(new AbsListView.OnScrollListener(){
+                public void onScrollStateChanged(AbsListView view,int state){}
+                public void onScroll(AbsListView view,int first,int visible,int total){list.post(()->{if(list.getAdapter()==adapter)adapter.setVisibleRange(first,visible);});}
+            });
         }else list.setAdapter(new BaseAdapter() {
             public int getCount() { return screen.rows.size(); }
             public Row getItem(int position) { return screen.rows.get(position); }
@@ -728,6 +733,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     }
     @Override protected void onResume() {super.onResume();resumed=true;if(root!=null)render();}
     @Override protected void onDestroy() {
+        if(baseList!=null&&baseList.getAdapter() instanceof LibraryAdapter)((LibraryAdapter)baseList.getAdapter()).close();
         destroyed = true; generation++; worker.close(); progressWriter.close(); diagnosticStore.close();
         // The application-scoped database remains available while outstanding durable writes finish.
         super.onDestroy();

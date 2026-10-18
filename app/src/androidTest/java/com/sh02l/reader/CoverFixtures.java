@@ -7,7 +7,10 @@ import java.util.*;
 
 final class CoverFixtures {
     static byte[] png(int width,int height) {
-        Bitmap bitmap=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);bitmap.eraseColor(Color.GREEN);
+        return png(width,height,Color.GREEN);
+    }
+    static byte[] png(int width,int height,int color) {
+        Bitmap bitmap=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);bitmap.eraseColor(color);
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();bitmap.compress(Bitmap.CompressFormat.PNG,100,bytes);bitmap.recycle();return bytes.toByteArray();
     }
     static String id() throws Exception { return hash(UUID.randomUUID().toString().getBytes("UTF-8")); }

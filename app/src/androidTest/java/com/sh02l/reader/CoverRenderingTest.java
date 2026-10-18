@@ -9,6 +9,22 @@ import java.util.concurrent.*;
 
 @SuppressWarnings("deprecation")
 public final class CoverRenderingTest extends InstrumentationTestCase {
+    public void testReusedRowGetsOnlyItsCurrentBookCover() throws Exception {
+        android.content.Context context=getInstrumentation().getTargetContext();CoverStore store=new CoverStore(context);String a=CoverFixtures.id(),b=CoverFixtures.id();
+        store.importCover(a,new ByteArrayInputStream(CoverFixtures.png(80,120,Color.RED)),"a.png",null);store.importCover(b,new ByteArrayInputStream(CoverFixtures.png(80,120,Color.BLUE)),"b.png",null);
+        final android.view.View[] row={null};
+        getInstrumentation().runOnMainSync(()->{
+            android.widget.ListView parent=new android.widget.ListView(context);LibraryAdapter adapter=new LibraryAdapter(context,()->0,()->true);
+            adapter.setItems(Arrays.asList(new LibraryAdapter.Item(new BookRepository.Book(a,"book A","UTF-8",100,100,0),false,0),new LibraryAdapter.Item(new BookRepository.Book(b,"book B","UTF-8",100,100,0),false,0)));
+            adapter.setStyle(2,com.sh02l.reader.core.Palette.forTheme(0));adapter.setVisibleRange(0,2);
+            row[0]=adapter.getView(0,null,parent);row[0]=adapter.getView(1,row[0],parent);
+        });
+        final int[] pixel={0};long deadline=android.os.SystemClock.uptimeMillis()+5000;
+        while(pixel[0]!=Color.BLUE&&android.os.SystemClock.uptimeMillis()<deadline){getInstrumentation().runOnMainSync(()->{
+            android.widget.ImageView cover=row[0].findViewWithTag("book-cover");if(cover.getDrawable() instanceof android.graphics.drawable.BitmapDrawable){Bitmap bitmap=((android.graphics.drawable.BitmapDrawable)cover.getDrawable()).getBitmap();pixel[0]=bitmap.getPixel(bitmap.getWidth()/2,bitmap.getHeight()/2);}
+        });android.os.SystemClock.sleep(30);}
+        assertEquals("Reused row must receive only book B's cover",Color.BLUE,pixel[0]);assertTrue(row[0].getContentDescription().toString().contains("book B"));
+    }
     public void testExifAndWideImageUseCenteredTwoByThree() throws Exception {
         File file=new File(getInstrumentation().getTargetContext().getCacheDir(),"cover-orientation.jpg");
         Bitmap source=Bitmap.createBitmap(120,80,Bitmap.Config.ARGB_8888);Canvas canvas=new Canvas(source);Paint p=new Paint();
