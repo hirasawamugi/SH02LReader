@@ -39,7 +39,7 @@
 - 本任务创建的 `sh02l-api27` 模拟器已关闭，AVD 保留在项目 `tools/avd/`；ADB 服务保留。下次重新读取 `adb devices`，不要把设备序列号写入源码文档。
 - 手机上的 debug/test 包已卸载，其压力测试数据随之移除。收尾补查发现根目录截图及应用目录中的截图/XML/导入副本共 8 个、654,162 字节，已校验备份后删除；备份和清单位于 `tools/logs/device-cleanup-20261018/`。正式书架的两份验证读本、阅读位置和设置保留，`diagnostics/latest.txt` 是应用正常诊断文件，仍会在正常使用时更新。
 - 电脑端 SDK、Gradle 缓存、AVD、构建输出与测试记录保留在工程内，供下次 M2 使用；它们没有被作为手机测试残留清除。
-- 一次正式包测试被 MATVT 鼠标工具崩溃弹窗挡住，按 Android Back 关闭后重测通过；没有禁用或卸载该工具。
+- 一次正式包测试被 MATVT 鼠标工具崩溃弹窗挡住，按 Android Back 关闭后重测通过；没有禁用或卸载该工具。随后按用户要求补查：系统保留两次 MATVT `RenderThread` 原生崩溃，第二次紧随屏幕唤醒，窗口连接失败并伴随已废弃的 BufferQueue，映射为 `EGL_BAD_ALLOC` 后触发 `SIGABRT`。优先排查悬浮窗恢复时序，不能直接归因 RAM 不足，也不能仅凭崩溃进程不同排除测试触发关系。证据、已确认范围和待验证项见 `docs/MATVT_DIAGNOSIS.md`；本次补查没有修改手机状态或启动 M2。
 - SH-02L 的无障碍界面树可能把底部报告为裁切；实际截图和用户观察均完整，不能据此硬编码 96 px 屏幕补丁。
 
 完整记录见 `docs/M0_VALIDATION.md`、`docs/M1_VALIDATION.md`。原始记录在忽略目录 `tools/logs/`，正式包附 `VALIDATION.md`、`TEST_RESULTS.json`、签名、校验与原生测试摘要。
