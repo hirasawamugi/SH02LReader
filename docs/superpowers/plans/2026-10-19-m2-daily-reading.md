@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Release `0.3.0-m2`, versionCode 5, existing `com.sh02l.reader` ID and certificate.
+- Release `0.3.1-m2`, versionCode 6, existing `com.sh02l.reader` ID and certificate.
 - Preserve user books; no production uninstall/clear-data, no external push or publish.
 - No AndroidX, NDK, network runtime dependencies or EPUB in this iteration.
 - Literal case-sensitive search, 100 results/batch; library 50 records/batch; emergency reserve 256 KiB.

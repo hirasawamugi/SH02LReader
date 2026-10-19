@@ -912,7 +912,13 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
         worker.submit(() -> {
             try {
                 T result = work.run();
-                runOnUiThread(() -> { if (valid(token) && screens.contains(origin)) { origin.busy = false; done.accept(result); render(); } });
+                runOnUiThread(() -> {
+                    if (!valid(token) || !screens.contains(origin)) return;
+                    origin.busy = false; if (notice.equals(message)) notice = "";
+                    done.accept(result);
+                    if (top() == origin) builtOverlay = null; // Async rows can need more space than their loading placeholder.
+                    render();
+                });
             } catch (Exception error) { fail(token, operationError(error), error); }
         });
     }
