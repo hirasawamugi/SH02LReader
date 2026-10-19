@@ -49,6 +49,9 @@ $taskBadging | Set-Content -LiteralPath (Join-Path $taskOutputRoot 'apk-info.txt
 ($taskHash + '  ' + $taskApkName) | Set-Content -LiteralPath (Join-Path $taskOutputRoot 'SHA256SUMS.txt') -Encoding ASCII
 Copy-Item -LiteralPath (Join-Path $taskProjectRoot 'docs\M1_5_VALIDATION.md') -Destination (Join-Path $taskOutputRoot 'VALIDATION.md') -Force
 Copy-Item -LiteralPath (Join-Path $taskProjectRoot 'docs\M1_5_RELEASE_NOTES.md') -Destination (Join-Path $taskOutputRoot 'CHANGELOG.md') -Force
+foreach ($taskDocument in @('M1_5_VALIDATION.md','M1_5_REVIEW.md','MATVT_DIAGNOSIS.md')) {
+    Copy-Item -LiteralPath (Join-Path $taskProjectRoot ('docs\' + $taskDocument)) -Destination (Join-Path $taskOutputRoot $taskDocument) -Force
+}
 Copy-Item -LiteralPath (Join-Path $taskProjectRoot 'docs\TXT_STORAGE.md') -Destination (Join-Path $taskOutputRoot 'TXT_STORAGE.md') -Force
 New-Item -ItemType Directory -Path (Join-Path $taskOutputRoot 'images') -Force | Out-Null
 foreach ($taskImage in Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'docs\images\m1-5') -Filter '*.png' -File) {

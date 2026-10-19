@@ -1,6 +1,6 @@
 # M1.5 验证记录
 
-日期：2026-10-18 起。版本 `0.2.5-m1.5`（versionCode 3），正式应用 ID `com.sh02l.reader`，debug/test 与正式包隔离。
+日期：2026-10-18—19（Asia/Shanghai）。版本 `0.2.5-m1.5`（versionCode 3），正式应用 ID `com.sh02l.reader`，debug/test 与正式包隔离。
 
 ## 已执行验证
 
@@ -8,16 +8,22 @@
 | --- | --- | --- |
 | JVM 按键、主题和文本/安全导入 | JDK 17 | 46 项通过 |
 | debug 构建、Android Lint | API 35 编译 / min API 27 | 通过 |
-| 原生完整回归 | API 27 x86，540×960 / 240 dpi，font_scale=1.3 | 54 项通过，47.103 秒 |
-| 原生完整回归与截图 | SH-02L / API 27，系统 font_scale=1.3 | 进行中 |
-| M1 正式签名包覆盖升级 | 隔离 API 27 模拟器 | 进行中 |
-| 正式包 UTF-8/GB18030 与前台强停恢复 | 模拟器 / SH-02L | 待执行 |
+| 原生完整回归 | API 27 x86，540×960 / 240 dpi，font_scale=1.3 | 55 项通过，27.597 秒 |
+| 原生完整回归与截图 | SH-02L / API 27，系统 font_scale=1.3 | 55 项通过，141.499 秒 |
+| M1 正式签名包覆盖升级 | 隔离 API 27 模拟器 | 两本原件、一本书的一条书签、偏移及显示设置保留；一次性迁移通过 |
+| 正式包 UTF-8/GB18030 与前台强停恢复 | API 27 模拟器 | 通过，前后 ID/偏移一致 |
+| 正式包 UTF-8/GB18030 与前台强停恢复 | SH-02L | 通过，前后 ID/偏移一致；曾有一次快照传输失败，修正只读重试后最终包完整通过 |
+| release 构建 / Lint / 签名 | JDK 17，原 M1 证书 | 构建与签名通过，Lint 0 错误 / 8 警告 |
+
+最终正式 APK 为 63,496 字节，内嵌源码提交 `849dd6f773a3903c630e278c11cedbfbd30be4e3`，SHA-256：`85c0123b474ca6ec6ffdf4f0a1d052189d4a7b0b86b478f956dc1621d5cac46e`。沿用原 M1 签名证书，发布脚本再次验证签名、对齐和来源。
 
 每个实现任务先观察行为失败再实现。原生测试覆盖外观迁移、分层设置返回、同一 PageView 与尺寸/锚点保持、三种书架样式、选中名称滚动停止、封面 EXIF/裁剪与预算、错误图片保留旧图、可见行复用晚回调、复制/移动提交顺序、损坏重复副本、来源变化/只读/未知大小/删除失败、授权拒绝/撤销、选择取消、固定封面目标，以及原件导出成功/取消/写入失败。
 
 另有确定性生命周期测试：工作已完成但 UI 回调尚未执行时结束 Activity，不能重新打开旧阅读页；旧导出选择器返回不能打断新导入。帮助测试覆盖完整 0 按键周期与长按、CENTER 不退出、菜单焦点与正文锚点恢复、导入中开关帮助，以及 450/380 px 宽度在 240 dpi / 1.3 字号下的网格基线。
 
 保留原有分页逐页拼接、书签/目录、重排、快速切书与 1/10/50 MiB 文件测试。设备测试数包含视觉遍历一项：通过生产设置入口检查三主题×三书架样式的等高行和软键边界，并保存真实屏幕。截图文件名含 theme/style 数值：0 米白/纯文字、1 柔白/小书标、2 暖炭灰/封面。
+
+独立完整差异审查发现一项 Important：进程中止后的封面残留缺少启动清理。确定性恢复用例先观察失败，随后验证 AtomicFile 备份恢复、暂存/无指针孤立版本回收、损坏指针保留不确定版本，最终两设备均 55 项通过。另将测试等待调整为书架数据、窗口及选中行实际就绪后输入，保留书籍 ID、名称、焦点和封面断言，避免在加载过渡帧重复读取。唯一暂缓 Minor 为菜单长标题仍单行省略，书架选中名称可以滚动读全；见 [完整审查记录](M1_5_REVIEW.md)。
 
 ## 数据与故障边界
 
@@ -29,10 +35,20 @@
 
 按用户明确指示，已卸载手机 M1 且不保留其应用数据；未删除共享存储中的来源 TXT/图片，旧工程和电脑 M1 发布包保留。没有修改手机全局字号、亮度或 MATVT 设置。
 
-真机测试前及唤醒后 crash 缓冲区 SHA-256 均为 `C8F9D6286AE2D2E1453442C8D5317276018BAA0773B89C1D980517EDC42D7A99`，只有已记录的历史异常。本次测试后的记录待补充。MATVT-001 未据此关闭，处理约定见 [MATVT_DIAGNOSIS.md](MATVT_DIAGNOSIS.md)。
+真机测试前、唤醒后、55 项回归后及正式包冒烟阶段 crash 缓冲区 SHA-256 均为 `C8F9D6286AE2D2E1453442C8D5317276018BAA0773B89C1D980517EDC42D7A99`，没有新增崩溃。MATVT-001 未据此关闭，处理约定见 [MATVT_DIAGNOSIS.md](MATVT_DIAGNOSIS.md)。
+
+## 升级与构建溯源
+
+隔离模拟器先安装保留的 M1 正式 APK，使用生产界面导入两份生成 TXT、翻页、添加一条书签、改变字号/亮度/信息栏/theme，然后用同证书 M1.5 覆盖安装。只在该隔离模拟器提取私有快照，以 `scripts/verify-upgrade.py` 比较全部图书记录（不含打开时间）、书签、原件 SHA-256 和偏好。font=19、brightness=9、info=false、旧 theme=1 全部保留，两主题初始化为 1；再将正文变为 2 并重启，界面仍为 1，正文保持 2，未重复迁移。证据为 `tools/logs/m15-upgrade/{result,once-result}.json`。
+
+Windows JDK 曾发生原生堆地址分配失败，按 JVM 日志建议，仅给当前构建进程设置 `HeapBaseMinAddress=4294967296` 后成功，未更改全局 Java。AGP 8.6.1 默认不能追踪链接工作树的 `.git` 文件；构建现通过 Git 解析实际 HEAD，并作为 VCS 任务输入写入 APK 内 `META-INF/version-control-info.textproto`。观察到修正前为 `NO_VALID_GIT_FOUND`，修正后为实际 40 位提交号；逐 ZIP 项比较确认只有该元信息不同，运行代码和资源相同。
+
+发布脚本验证内嵌提交与当前编译源码一致，分别记录 APK 来源提交和文档发布提交。后续仅文档变化不冒称重新编译。8 项 Lint 警告包含既有定向屏幕/本地化等提示与系统 ExifInterface 提示；没有引入 AndroidX 或新运行依赖。
 
 ## 证据
 
-Git 忽略目录 `tools/logs/`：`m15-final-verify.txt`、`instrumentation-m15-final-emulator.txt`、`instrumentation-m15-final-sh02l.txt`，每任务的 RED/GREEN 日志，`m15-*-visual/qa/` 截图。发布目录附 APK、SHA-256、签名、内嵌来源与本报告。最终来源与包大小以 `build-info.json` 为准。
+Git 忽略目录 `tools/logs/`：`m15-last-verify.txt`、`instrumentation-m15-verified55-emulator.txt`、`instrumentation-m15-final55-sh02l.txt`，每任务的 RED/GREEN 日志，`m15-*-visual/qa/` 截图。发布目录附 APK、SHA-256、签名、内嵌来源与本报告。最终来源与包大小以 `build-info.json` 为准。
 
 长期阅读由用户日常试读；M3 的规模、P95、真实来电与长期合盖回收另行验收，不把这一轮自动化宣称为完整 TXT 稳定版。
+
+最终手机状态：仅保留正式包；debug/test 与本轮读本、快照已清理。重新启动显示书架 0 本，拉取已安装 APK 校验值与发布候选一致。最终正式包冒烟证据为 release-smoke-m1-m15-release-final-{emulator,sh02l}.json，清理后界面为 m15-delivered-clean-ui.xml。
