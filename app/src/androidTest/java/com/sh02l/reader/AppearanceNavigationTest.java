@@ -8,7 +8,7 @@ public final class AppearanceNavigationTest extends NativeTestBase {
         assertNotNull("Categorized settings are required",find("item:appearance"));
         press(KeyEvent.KEYCODE_DPAD_CENTER); select("ui-theme"); press(KeyEvent.KEYCODE_DPAD_RIGHT);
         press(KeyEvent.KEYCODE_F2); assertEquals("item:appearance",selected());
-        press(KeyEvent.KEYCODE_DPAD_CENTER); assertTrue(((android.widget.TextView)find("item:ui-theme")).getText().toString().contains("柔白"));
+        press(KeyEvent.KEYCODE_DPAD_CENTER); assertTrue(((android.widget.TextView)find("item:ui-theme")).getText().toString().contains("白色"));
     }
     public void testUiThemeLeavesReaderAnchorAndViewIntact() throws Exception {
         fixture(); long before=offset();View reader=find("reading-content");int width=reader.getWidth(),height=reader.getHeight();

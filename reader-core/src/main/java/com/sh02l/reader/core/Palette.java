@@ -9,7 +9,7 @@ public final class Palette {
     }
     public static Palette forTheme(int theme) {
         if(theme==AppearanceState.DARK)return new Palette(0xff252421,0xff302e29,0xffeae6dd,0xffb7b1a6,0xff93b4ce,0xff35414a,0xff4a4740);
-        if(theme==AppearanceState.LIGHT)return new Palette(0xfffafaf7,0xfffffefa,0xff2d3033,0xff696a66,0xff3c6688,0xffe4ebf0,0xffdcded8);
-        return new Palette(0xfff4f1ea,0xfffffcf6,0xff2d3033,0xff696a66,0xff3c6688,0xffe4ebf0,0xffd8d4c9);
+        if(theme==AppearanceState.LIGHT)return new Palette(0xffffffff,0xffffffff,0xff2d3033,0xff606468,0xff3c6688,0xffe4ebf0,0xffdcded8);
+        return new Palette(0xfff1e7d2,0xfffaf3e5,0xff353129,0xff60594d,0xff516573,0xffe0d9c8,0xffd4c9b4);
     }
 }

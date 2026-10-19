@@ -1,4 +1,4 @@
-param([string]$Version = '0.2.5-m1.5')
+param([string]$Version = '0.2.6-m1.5')
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z0-9.]+)?$') { throw 'Invalid version.' }
 $taskProjectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path

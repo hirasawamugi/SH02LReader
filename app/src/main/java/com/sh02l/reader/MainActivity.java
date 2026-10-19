@@ -36,7 +36,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     }
     private static final class Screen {
         final Kind kind; final List<Row> rows = new ArrayList<>();
-        int selected, group; String title; File directory;final String targetBookId;
+        int selected, group, selectionTop; boolean hasSelectionTop; String title; File directory;final String targetBookId;
         boolean helpReading;String[] helpFunctions;
         Screen(Kind kind, String title) {this(kind,title,"");}
         Screen(Kind kind,String title,String targetBookId) {this.kind=kind;this.title=title;this.targetBookId=targetBookId;}
@@ -69,7 +69,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     private int uiTheme, bookStyle;
     private FrameLayout root, overlayHost;
     private Screen builtBase, builtOverlay;
-    private ListView baseList, overlayList;
+    private NavigationListView baseList, overlayList;
     private TextView noticeView, infoView, diagnosticView;
     private PageView pageView;
     private KeyHelpView helpView;
@@ -264,7 +264,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     private void refreshSettings(Screen screen) {
         if (screen.kind != Kind.SETTINGS) return;
         screen.rows.clear();
-        String[] colors={"米白","柔白","暖炭灰"};
+        String[] colors={"米白","白色","暖炭灰"};
         if(screen.group==0){screen.rows.add(new Row("appearance","界面外观"));screen.rows.add(new Row("reading-settings","正文阅读"));screen.rows.add(new Row("help","按键说明"));}
         else if(screen.group==1){screen.rows.add(new Row("ui-theme","界面主题："+colors[uiTheme]));screen.rows.add(new Row("shelf-style","书架样式："+new String[]{"纯文字","小书标","独立封面"}[bookStyle]));}
         else {screen.rows.add(new Row("theme","阅读配色："+colors[theme]));screen.rows.add(new Row("font","字号："+fontSize));screen.rows.add(new Row("brightness","窗口亮度："+brightness*10+"%"));screen.rows.add(new Row("info","阅读信息栏："+(infoVisible?"显示":"隐藏")));}
@@ -387,9 +387,14 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         push(screen); notice = "选择文件后可复制或移动导入；私有原件可从图书菜单导出";
     }
     private void requestSharedStorage() {
-        if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+        List<String> missing = new ArrayList<>();
+        if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)
+            missing.add(Manifest.permission.READ_EXTERNAL_STORAGE);
+        if (Build.VERSION.SDK_INT <= 28 && checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)
+            missing.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        if (!missing.isEmpty()) {
             storagePermissionRequest=importRequest;
-            requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 1); return;
+            requestPermissions(missing.toArray(new String[0]), 1); return;
         }
         sharedRoots();
     }
@@ -411,7 +416,11 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         if (request == 1 && !destroyed) {
             ImportRequest requested=storagePermissionRequest;storagePermissionRequest=null;
             if(requested==null||requested!=importRequest||top().kind!=Kind.SOURCES)return;
-            if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) sharedRoots();
+            if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+                sharedRoots();
+                if (Build.VERSION.SDK_INT <= 28 && checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)
+                    notice = "未获得写入权限，仍可复制导入；移动可使用系统文件选择授权。";
+            }
             else notice = "未获得读取权限，可使用系统文件选择或应用导入文件夹";
             render();
         }
@@ -679,6 +688,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
 
     private void render() {
         if (destroyed || isFinishing()) return;
+        rememberSelection(builtBase,baseList);rememberSelection(builtOverlay,overlayList);
         Screen content = base();Palette palette=Palette.forTheme(content.kind==Kind.READER?theme:uiTheme);
         background=palette.background;foreground=palette.foreground;secondary=palette.secondary;surface=palette.surface;
         String style = content.kind==Kind.READER ? "reader:"+theme+":"+fontSize+":"+infoVisible : "ui:"+uiTheme+":"+bookStyle;
@@ -694,13 +704,15 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         if (top().kind.overlay()) {
             if (builtOverlay != top()) { overlayHost.removeAllViews(); buildOverlay(top()); builtOverlay = top(); }
         } else { overlayHost.removeAllViews(); builtOverlay = null; overlayList = null;helpView=null; }
-        ListView active = top().kind.overlay() ? overlayList : baseList;
+        NavigationListView active = top().kind.overlay() ? overlayList : baseList;
         if(baseList!=null){if(baseList.getAdapter() instanceof LibraryAdapter)((LibraryAdapter)baseList.getAdapter()).setSelectedBook(selectedId(content));((BaseAdapter)baseList.getAdapter()).notifyDataSetChanged();}
         if (baseList != null) baseList.setFocusable(!top().kind.overlay());
         if (pageView != null) pageView.setFocusable(!top().kind.overlay() && top().kind == Kind.READER);
         if (active != null) {
             ((BaseAdapter) active.getAdapter()).notifyDataSetChanged();
-            if (active.getSelectedItemPosition() != top().selected) active.setSelection(top().selected);
+            Integer offset=active.showSelection(top().selected);
+            // Another key may open a screen before the scheduled list layout runs.
+            if(offset!=null){top().selectionTop=offset;top().hasSelectionTop=true;}
             if (!active.hasFocus()) active.requestFocus();
         } else if(top().kind==Kind.HELP&&helpView!=null)helpView.requestFocus();
         else if (top().kind == Kind.READER && pageView != null && !pageView.hasFocus()) pageView.requestFocus();
@@ -754,9 +766,9 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         parameters.setMargins(dp(16), dp(20), dp(16), dp(20)); shade.addView(panel, parameters);
         overlayHost.addView(shade, new FrameLayout.LayoutParams(-1, -1));
     }
-    private ListView list(Screen screen) {
+    private NavigationListView list(Screen screen) {
         UiStyle style=new UiStyle(this,Palette.forTheme(uiTheme));
-        ListView list = new ListView(this); list.setTag("list:" + screen.kind.name());
+        NavigationListView list = new NavigationListView(this,uiTheme==AppearanceState.DARK); list.setTag("list:" + screen.kind.name());
         list.setDivider(null); list.setDividerHeight(dp(6)); list.setItemsCanFocus(false);
         list.setFocusable(true); list.setFocusableInTouchMode(true); list.setDefaultFocusHighlightEnabled(false);
         list.setSelector(android.R.color.transparent); list.setCacheColorHint(Color.TRANSPARENT);
@@ -766,10 +778,6 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
             for(Row row:screen.rows){BookRepository.Book book=row.value instanceof BookRepository.Book?(BookRepository.Book)row.value:null;
                 items.add(new LibraryAdapter.Item(book,book!=null&&book.id.equals(last),book==null?0:livePositions.containsKey(book.id)?livePositions.get(book.id):book.offset));}
             adapter.setItems(items);adapter.setStyle(bookStyle,Palette.forTheme(uiTheme));list.setAdapter(adapter);
-            list.setOnScrollListener(new AbsListView.OnScrollListener(){
-                public void onScrollStateChanged(AbsListView view,int state){}
-                public void onScroll(AbsListView view,int first,int visible,int total){list.post(()->{if(list.getAdapter()==adapter)adapter.setVisibleRange(first,visible);});}
-            });
         }else list.setAdapter(new BaseAdapter() {
             public int getCount() { return screen.rows.size(); }
             public Row getItem(int position) { return screen.rows.get(position); }
@@ -783,7 +791,19 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         list.setOnItemClickListener((parent, view, position, id) -> {
             if (top() != screen) return; screen.selected = position; activate(); render();
         });
-        list.setSelection(screen.selected); return list;
+        list.setOnScrollListener(new AbsListView.OnScrollListener(){
+            public void onScrollStateChanged(AbsListView view,int state){}
+            public void onScroll(AbsListView view,int first,int visible,int total){
+                rememberSelection(screen,list);
+                if(list.getAdapter() instanceof LibraryAdapter){LibraryAdapter adapter=(LibraryAdapter)list.getAdapter();list.post(()->{if(list.getAdapter()==adapter)adapter.setVisibleRange(first,visible);});}
+            }
+        });
+        list.restoreSelection(screen.selected,screen.hasSelectionTop?screen.selectionTop:0); return list;
+    }
+    private void rememberSelection(Screen screen,NavigationListView list) {
+        if(screen==null||list==null||list.getSelectedItemPosition()!=screen.selected)return;
+        View row=list.getSelectedView();
+        if(row!=null&&list.getPositionForView(row)==screen.selected){screen.selectionTop=row.getTop()-list.getListPaddingTop();screen.hasSelectionTop=true;}
     }
     private void invalidateLists() { builtBase = null; builtOverlay = null; }
     private String selectedId(Screen screen) {
