@@ -8,6 +8,8 @@
 
 入口：`NavigationState` 保存页面/选择，`ReaderInputView` 负责原生输入，`ReadingSettings/FontStore` 管理排版和单份字体，`ReaderFeatures` 管理搜索/跳转/编码，`LibraryFeatures/StorageManager` 管理显式删除和空间；`DocumentSession/TxtDocumentSession` 提供 seek/move 边界。MainActivity 继续负责窗口和生命周期。删除还需失效该 id 的内存定位与异步进度代次，避免同 ID 重导入恢复被删除的进度。
 
+已交付并覆盖安装最终 `0.3.1-m2` / code 6，86,692 字节，APK 来源 `8d0df64`。51 项 JVM、模拟器 23 项和真机最终 14 项关键回归通过；独立审查两个 P2 已修正。最终面板刷新经 release/Lint 与真机目视检查。原两本书、0.9% 阅读进度和 Books 原文件保留，debug/test 包清理完成。下一步是用户试读反馈和 M3，而非重复实现 M2。
+
 执行清单见 [M2 计划](superpowers/plans/2026-10-19-m2-daily-reading.md)，候选与实际验证以 [M2 验证](M2_VALIDATION.md) 为准。中文系统输入法组合、真实来电/合盖及长期试读仍需用户反馈，M3 性能预算和 EPUB 未列为已完成。不重复 M1.5 主题问答或大规模视觉排列。
 
 以下为 M1.5 历史交付记录。

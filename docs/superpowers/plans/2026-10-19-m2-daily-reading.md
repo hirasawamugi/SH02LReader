@@ -30,8 +30,8 @@
 ## Task 1: Baseline and implementation record
 
 - [x] Preserve M1.5 work as local commit and tag; create feature branch.
-- [ ] Run baseline JVM/build/lint once; keep evidence in `tools/logs/m2-baseline.txt`.
-- [ ] Keep progress in `docs/M2_PROGRESS.md`; record interfaces and verification as work proceeds.
+- [x] Run baseline JVM/build/lint once; keep evidence in `tools/logs/m2-baseline.txt`.
+- [x] Keep progress in `docs/M2_PROGRESS.md`; record interfaces and verification as work proceeds.
 
 ## Task 2: Library lifecycle and storage (independent worker)
 
@@ -39,34 +39,34 @@
 
 **Produces:** `BookRepository.listPage(offset,limit)`, `count()`, `pageOf(id,size)`, `renameBook(id,title)`, `deleteBook(id)`, `removeBookmark(id,offset)`, `renameBookmark(id,offset,label)`, `ensureCache(id,observer)`, `rebuild(id,charset,observer)`; `CoverStore.remove(id)`; storage API specified in task brief.
 
-- [ ] Add focused deletion/upgrade/recovery tests, observe missing behavior before implementation where possible.
-- [ ] Implement v2 index migration, paged metadata and management, crash-safe book deletion and cache rebuild, validated source retention.
-- [ ] Implement storage scan/cache/import cleanup and allocated reserve, retained failed progress with bounded retry.
-- [ ] Report exact APIs and targeted evidence; root performs shared Android build/device run.
+- [x] Add focused deletion/upgrade/recovery tests, observe missing behavior before implementation where possible.
+- [x] Implement v2 index migration, paged metadata and management, crash-safe book deletion and cache rebuild, validated source retention.
+- [x] Implement storage scan/cache/import cleanup and allocated reserve, retained failed progress with bounded retry.
+- [x] Report exact APIs and targeted evidence; root performs shared Android build/device run.
 
 ## Task 3: Text search and TXT style boundary (independent worker)
 
 **Files:** new `TextSearcher.java` and JVM tests, `TxtPaginator.java`, new TXT document-session interface/adapter as specified in brief.
 
-- [ ] Write search tests for cross-8192-unit match, cancellation and bounded batches; observe RED.
-- [ ] Implement streaming/bounded search with snippets, continuation offset, no whole-book read.
-- [ ] Add configurable typeface to layout spec, retain existing constructor; expose a TXT session adapter behind a document-session contract.
-- [ ] Run targeted JVM tests and report exact APIs.
+- [x] Write search tests for cross-8192-unit match, cancellation and bounded batches; observe RED.
+- [x] Implement streaming/bounded search with snippets, continuation offset, no whole-book read.
+- [x] Add configurable typeface to layout spec, retain existing constructor; expose a TXT session adapter behind a document-session contract.
+- [x] Run targeted JVM tests and report exact APIs.
 
 ## Task 4: Native UI, navigation and settings integration
 
 **Files:** `MainActivity.java`, new `NavigationState.java`, `ReaderInputView.java`, `ReadingSettings.java`, optional controller/feature views; representative native tests.
 
-- [ ] Extract navigation state and reading settings, preserve existing measured key lifecycle.
-- [ ] Add native text/number input, search/continuation, jump and encoding workflows with cancellation tokens.
-- [ ] Add book/bookmark rename/delete and cover removal confirmation; paged shelf; storage multi-select and import cleanup.
-- [ ] Wire margin/line-height/typeface import and anchor-preserving relayout, automatic cache repair and progress retry on space recovery.
-- [ ] Add representative input, storage and location regression coverage; avoid visual matrix duplication.
+- [x] Extract navigation state and reading settings, preserve existing measured key lifecycle.
+- [x] Add native text/number input, search/continuation, jump and encoding workflows with cancellation tokens.
+- [x] Add book/bookmark rename/delete and cover removal confirmation; paged shelf; storage multi-select and import cleanup.
+- [x] Wire margin/line-height/typeface import and anchor-preserving relayout, automatic cache repair and progress retry on space recovery.
+- [x] Add representative input, storage and location regression coverage; avoid visual matrix duplication.
 
 ## Task 5: Verify, review and deliver
 
-- [ ] Build debug/test and release, run JVM suite and targeted native tests on an explicit device.
-- [ ] Request one independent whole-change review focused on data lifecycle/input/stale tasks; fix substantial findings with covering checks.
-- [ ] Produce versioned signed candidate with hashes/source record; preserve previous APKs.
-- [ ] If device is usable, cover-install release and perform short data-preserving smoke. Record actual limitations, update README/HANDOFF/M2 validation.
-- [ ] Commit final sources and report APK, meaningful checks and remaining manual trial items.
+- [x] Build debug/test and release, run JVM suite and targeted native tests on an explicit device.
+- [x] Request one independent whole-change review focused on data lifecycle/input/stale tasks; fix substantial findings with covering checks.
+- [x] Produce versioned signed candidate with hashes/source record; preserve previous APKs.
+- [x] If device is usable, cover-install release and perform short data-preserving smoke. Record actual limitations, update README/HANDOFF/M2 validation.
+- [x] Commit final sources and report APK, meaningful checks and remaining manual trial items.

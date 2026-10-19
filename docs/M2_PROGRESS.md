@@ -14,4 +14,8 @@ Plan: `docs/superpowers/plans/2026-10-19-m2-daily-reading.md`
 - Native integrated: emulator 23/23 pass; first phone 11/11 pass. Independent review identified two P2 lifecycle bugs, both reproduced in two focused failing native cases.
 - Final fix pass: duplicates now verify original identity while retaining selected encoding/cache state; deletion invalidates live positions and pending/dequeued progress generations. Added controlled repository-lock ordering case.
 - Final verify: 51 JVM cases, debug/test and Lint pass. Final SH-02L 14/14 cases pass (27.932s), including both RED→GREEN regressions and dequeued write invalidation.
-- Formal pre-upgrade shelf observed 2 books, 大爱仙尊 at 0.9%, 遮天 at 0.0%; original Books hashes/metadata saved. Pending: release build/package and data-preserving upgrade smoke.
+- Formal pre-upgrade shelf observed 2 books, 大爱仙尊 at 0.9%, 遮天 at 0.0%; original Books hashes/metadata saved.
+- UI QA: async placeholder panel retained its small height; fixed targeted refresh and loading text, version 0.3.1-m2/code6. Release/Lint passed; actual SH-02L storage panel visually verified. Earlier 0.3.0 candidate preserved.
+- Release source `8d0df64`, APK 86,692 bytes, SHA256 dd065bfd81d99d8074537b6f6597f4353c79b26866d7c468485367a3bebaaf3e. Same certificate and installed bytes verified.
+- Cover upgrade and force-stop/reopen preserve both books and displayed progress; external Books hashes unchanged. Own debug/test packages and remote temporary captures removed, emulator closed, crash buffer unchanged.
+- Complete: implementation, focused tests, independent review and fixes, source commits, signed candidate, real-device upgrade/QA and cleanup. Local branch retained; M3/Chinese IME composition/long trial boundaries recorded in M2_VALIDATION.
