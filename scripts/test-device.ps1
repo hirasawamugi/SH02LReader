@@ -1,5 +1,6 @@
 param([Parameter(Mandatory=$true)][ValidatePattern('^[A-Za-z0-9._:-]+$')][string]$Serial,
-      [ValidatePattern('^[A-Za-z0-9_-]+$')][string]$Label = 'device')
+      [ValidatePattern('^[A-Za-z0-9_-]+$')][string]$Label = 'device',
+      [ValidatePattern('^[A-Za-z0-9_.$,#]+$')][string]$TestClass)
 $ErrorActionPreference = 'Stop'
 $taskProjectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 New-Item -ItemType Directory -Path (Join-Path $taskProjectRoot 'tools\logs') -Force | Out-Null
@@ -15,7 +16,10 @@ if ($taskPowerState -notmatch 'mWakefulness=Awake') { throw 'Open the flip phone
 if ($LASTEXITCODE -ne 0) { throw 'Debug application install failed.' }
 & $taskAdb -s $Serial install -r -t $taskTests
 if ($LASTEXITCODE -ne 0) { throw 'Instrumentation test install failed.' }
-$taskTestOutput = @(& $taskAdb -s $Serial shell am instrument -w -r 'com.sh02l.reader.debug.test/android.test.InstrumentationTestRunner')
+$taskInstrumentArguments = @('-s', $Serial, 'shell', 'am', 'instrument', '-w', '-r')
+if ($TestClass) { $taskInstrumentArguments += @('-e', 'class', $TestClass) }
+$taskInstrumentArguments += 'com.sh02l.reader.debug.test/android.test.InstrumentationTestRunner'
+$taskTestOutput = @(& $taskAdb @taskInstrumentArguments)
 $taskExit = $LASTEXITCODE
 $taskLog = Join-Path $taskProjectRoot ('tools\logs\instrumentation-' + $Label + '.txt')
 $taskTestOutput | Set-Content -LiteralPath $taskLog -Encoding UTF8

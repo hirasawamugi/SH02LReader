@@ -18,10 +18,12 @@ final class CoverStore {
     private File directory(String id)throws IOException {if(id==null||!id.matches("[0-9a-f]{64}"))throw new IOException("Invalid cover target");return new File(root,id);}
     void cleanupInterruptedImports()throws IOException{
         synchronized(LOCK){
+            if(Files.isSymbolicLink(root.toPath()))throw new IOException("Unsafe cover root");
             if(!root.isDirectory())return;
             // Stream directory entries; never read image contents or follow directory symlinks.
             try(DirectoryStream<Path> books=Files.newDirectoryStream(root.toPath())){
                 for(Path entry:books){TextImporter.check(null);File book=entry.toFile();
+                    if(book.getName().matches("\\.removed-[0-9a-f]{64}-[0-9a-f-]{36}")){removeBookDirectory(book);continue;}
                     if(!book.getName().matches("[0-9a-f]{64}")||!Files.isDirectory(entry,LinkOption.NOFOLLOW_LINKS)||!book.getCanonicalFile().getParentFile().equals(root.getCanonicalFile()))continue;
                     String current=null;boolean known=!new File(book,"current.bin").exists()&&!new File(book,"current.bin.bak").exists();
                     if(!known)try{current=currentRevision(book);known=true;}catch(IOException ignored){/* Preserve revisions when a damaged pointer cannot establish ownership. */}
@@ -78,7 +80,33 @@ final class CoverStore {
             }catch(IOException|RuntimeException error){return null;}
         }
     }
-    static String hash(File file)throws IOException{MessageDigest digest=digest();try(InputStream in=new FileInputStream(file)){byte[] b=new byte[16384];int n;while((n=in.read(b))!=-1){if(Thread.currentThread().isInterrupted())throw new InterruptedIOException();digest.update(b,0,n);}}return hex(digest.digest());}
+    /** Unpublish the cover first; interrupted reclamation resumes on startup. */
+    void remove(String bookId)throws IOException {
+        synchronized(LOCK){
+            File book=directory(bookId);
+            if(!Files.exists(book.toPath(),LinkOption.NOFOLLOW_LINKS))return;
+            if(Files.isSymbolicLink(root.toPath())||!Files.isDirectory(book.toPath(),LinkOption.NOFOLLOW_LINKS)||!book.getCanonicalFile().getParentFile().equals(root.getCanonicalFile()))throw new IOException("Unsafe cover removal");
+            File removed=new File(root,".removed-"+bookId+"-"+UUID.randomUUID());
+            if(!book.renameTo(removed))throw new IOException("Cannot remove cover pointer");
+            DurableFiles.syncDirectory(root);
+            removeBookDirectory(removed);
+            DurableFiles.syncDirectory(root);
+        }
+    }
+    private void removeBookDirectory(File book)throws IOException {
+        if(Files.isSymbolicLink(root.toPath())||!Files.isDirectory(book.toPath(),LinkOption.NOFOLLOW_LINKS)||!book.getCanonicalFile().getParentFile().equals(root.getCanonicalFile())||!book.getName().matches("\\.removed-[0-9a-f]{64}-[0-9a-f-]{36}"))throw new IOException("Unsafe removed cover directory");
+        removeTree(book.toPath());
+    }
+    private static void removeTree(Path folder)throws IOException {
+        try(DirectoryStream<Path> entries=Files.newDirectoryStream(folder)){
+            for(Path entry:entries){
+                if(Files.isDirectory(entry,LinkOption.NOFOLLOW_LINKS))removeTree(entry);else Files.delete(entry);
+            }
+        }
+        Files.delete(folder);
+    }
+    static String hash(File file)throws IOException{return hash(file,null);}
+    static String hash(File file,TextImporter.Observer observer)throws IOException{MessageDigest digest=digest();try(InputStream in=new FileInputStream(file)){byte[] b=new byte[16384];int n;while((n=in.read(b))!=-1){TextImporter.check(observer);digest.update(b,0,n);}}TextImporter.check(observer);return hex(digest.digest());}
     private static MessageDigest digest(){try{return MessageDigest.getInstance("SHA-256");}catch(NoSuchAlgorithmException e){throw new AssertionError(e);}}
     private static String hex(byte[] bytes){StringBuilder out=new StringBuilder();for(byte b:bytes)out.append(String.format(Locale.ROOT,"%02x",b&255));return out.toString();}
     private void removeOwned(File book,File folder)throws IOException{

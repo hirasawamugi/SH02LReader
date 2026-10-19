@@ -19,36 +19,15 @@ import com.sh02l.reader.core.*;
 import com.sh02l.reader.core.text.TextImporter;
 import com.sh02l.reader.core.importing.*;
 import com.sh02l.reader.txt.TxtPaginator;
+import com.sh02l.reader.NavigationState.*;
+import java.util.function.Consumer;
+import android.view.inputmethod.InputMethodManager;
 import java.io.*;
 import java.util.*;
 
 /** One window, one key router, and bounded asynchronous TXT sessions. */
-public final class MainActivity extends Activity implements KeyRouter.Target {
-    private enum Kind {
-        LIBRARY, SOURCES, FILES, IMPORT, IMPORT_MODE, READER, SETTINGS, HELP, DIAGNOSTICS,
-        MENU, CONTENTS, BOOKMARKS, EXIT;
-        boolean overlay() { return this==SETTINGS || this==HELP || this==MENU || this==CONTENTS || this==BOOKMARKS || this==EXIT || this==IMPORT_MODE; }
-    }
-    private static final class Row {
-        final String id, label; final Object value;
-        Row(String id, String label) { this(id, label, null); }
-        Row(String id, String label, Object value) { this.id = id; this.label = label; this.value = value; }
-    }
-    private static final class Screen {
-        final Kind kind; final List<Row> rows = new ArrayList<>();
-        int selected, group, selectionTop; boolean hasSelectionTop; String title; File directory;final String targetBookId;
-        boolean helpReading;String[] helpFunctions;
-        Screen(Kind kind, String title) {this(kind,title,"");}
-        Screen(Kind kind,String title,String targetBookId) {this.kind=kind;this.title=title;this.targetBookId=targetBookId;}
-    }
-    private static final class Session {
-        final BookRepository.Book book; final TextImporter.Result index; final TxtPaginator paginator;
-        Session(BookRepository.Book book, TextImporter.Result index, File directory) {
-            this.book = book; this.index = index;
-            this.paginator = new TxtPaginator(new File(directory, "text.u16"), index.length);
-        }
-    }
-    private enum ImportKind { TXT,COVER }
+public final class MainActivity extends Activity implements KeyRouter.Target, FeatureHost {
+    private enum ImportKind { TXT,COVER,FONT }
     private static final class ImportRequest {
         final ImportKind kind;final String targetBookId;
         ImportRequest(ImportKind kind,String targetBookId){this.kind=kind;this.targetBookId=targetBookId;}
@@ -57,11 +36,21 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         final File original;final String name,mime,sha256;
         ExportRequest(File original,String name,String mime,String sha256){this.original=original;this.name=name;this.mime=mime;this.sha256=sha256;}
     }
-    private final List<Screen> screens = new ArrayList<>();
+    private final NavigationState navigation = new NavigationState();
+    private final List<Screen> screens = navigation.screens;
     private final LatestWorker worker = new LatestWorker();
     private final DiagnosticBuffer diagnostics = new DiagnosticBuffer(256);
     private KeyRouter router;
     private BookRepository repository;
+    private StorageManager storageManager;
+    private LibraryFeatures libraryFeatures;
+    private ReaderFeatures readerFeatures;
+    private ReadingSettings readingSettings;
+    private ReaderInputView inputView;
+    private Screen inputScreen;
+    private String inputInitial;
+    private boolean inputNumeric;
+    private FeatureHost.InputSubmit inputSubmit;
     private ProgressWriter progressWriter;
     private DiagnosticStore diagnosticStore;
     private SharedPreferences preferences;
@@ -73,15 +62,16 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     private TextView noticeView, infoView, diagnosticView;
     private PageView pageView;
     private KeyHelpView helpView;
-    private long context = 1, generation, committedOffset = -1;
+    private long generation, committedOffset = -1;
     private String committedBook = "", notice = "F3 导入 TXT，确认打开图书";
     private String libraryReturnId = "";
+    private String pausedBookId = "";
     private String builtStyle = "";
     private int builtOverlayTheme=-1;
     private boolean resumed;
     private int fontSize, theme, brightness, foreground, secondary, background, surface;
     private boolean infoVisible, layoutBusy, loadingLibrary, destroyed;
-    private Session session;
+    private ReaderSession session;
     private TxtPaginator.Page page;
     private TxtPaginator.Spec requestedSpec;
     private long anchor;
@@ -106,7 +96,11 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         brightness = bound(preferences.getInt("brightness", prototype.brightness()), 1, 10);
         infoVisible = preferences.getBoolean("info", prototype.infoVisible());
         repository = BookRepository.obtain(this);
-        progressWriter = new ProgressWriter(repository, (id, offset, error) -> runOnUiThread(() -> {
+        readingSettings = new ReadingSettings(this, preferences);
+        storageManager = new StorageManager(this, repository);
+        libraryFeatures = new LibraryFeatures(this);
+        readerFeatures = new ReaderFeatures(this);
+        progressWriter = new ProgressWriter(repository, storageManager, (id, offset, error) -> runOnUiThread(() -> {
             if (destroyed) return;
             if (error == null) { committedBook = id; committedOffset = offset; }
             else { notice = "阅读位置保存失败，请检查可用空间"; render(); }
@@ -120,18 +114,16 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         diagnostics.append("session-created sdk=" + Build.VERSION.SDK_INT + " model=" + Build.MODEL);
         render(); loadLibrary(true);
     }
-    private Screen top() { return screens.get(screens.size() - 1); }
+    private Screen top() { return navigation.top(); }
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent); setIntent(intent);
         if (Intent.ACTION_VIEW.equals(intent.getAction()) && intent.getData() != null) importUri(intent.getData());
     }
-    private Screen base() {
-        for (int i = screens.size() - 1; i >= 0; i--) if (!screens.get(i).kind.overlay()) return screens.get(i);
-        return screens.get(0);
-    }
-    @Override public long contextVersion() { return context; }
+    private Screen base() { return navigation.base(); }
+    @Override public long contextVersion() { return navigation.contextVersion(); }
     @Override public Action resolve(Key key) {
         Kind kind = top().kind;
+        if (kind == Kind.INPUT) return key == Key.F2 || key == Key.F4 ? Action.BACK : key == Key.F3 ? Action.ACTIVATE : Action.NONE;
         if(kind==Kind.HELP){switch(key){case ZERO:return Action.HELP;case F2:case F4:return Action.BACK;case UP:return Action.UP;case DOWN:return Action.DOWN;default:return Action.NONE;}}
         if (key == Key.F2) return kind == Kind.LIBRARY || kind == Kind.READER ? Action.NONE : Action.BACK;
         if (key == Key.F4) return kind == Kind.LIBRARY ? Action.NONE : Action.BACK;
@@ -176,7 +168,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
             case DOWN: if(top().kind==Kind.HELP&&helpView!=null)helpView.move(1);else select(top().selected + 1); break;
             case LEFT: if (top().kind == Kind.SETTINGS) adjust(-1); break;
             case RIGHT: if (top().kind == Kind.SETTINGS) adjust(1); break;
-            case ACTIVATE: if (top().kind == Kind.READER) turn(1); else activate(); break;
+            case ACTIVATE: if (top().kind == Kind.INPUT && inputView != null) inputView.submit(); else if (top().kind == Kind.READER) turn(1); else activate(); break;
             case BACK: back(); break;
             case HOME: goLibrary(); break;
             case IMPORT: sources(); break;
@@ -203,6 +195,10 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         if (router == null) return super.dispatchKeyEvent(event);
         KeyInput input = new KeyInput(event.getAction(), event.getKeyCode(), event.getScanCode(), event.getRepeatCount(),
                 event.getDeviceId(), event.getDownTime(), event.getEventTime(), event.isCanceled());
+        if (top().kind == Kind.INPUT) {
+            Key key = Key.normalize(event.getKeyCode(), event.getScanCode());
+            if (key != Key.F2 && key != Key.F4 && key != Key.F3 && !router.owns(input)) return super.dispatchKeyEvent(event);
+        }
         KeyRouter.Result result = router.dispatch(input); diagnostics.record(input, result);
         Log.d("SH02LKeys", diagnostics.tail(1).trim());
         if (result.consumed) { if (!isFinishing()) render(); return true; }
@@ -210,13 +206,22 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     }
     @Override public void onBackPressed() { if (top().kind == Kind.LIBRARY) menu(); else back(); render(); }
     private void select(int selected) { top().selected = bound(selected, 0, Math.max(0, top().rows.size() - 1)); }
-    private void push(Screen screen) {
+    public void push(Screen screen) {
         if ((top().kind == screen.kind && screen.kind != Kind.SETTINGS) || screens.size() >= 12) return;
-        screens.add(screen); context++;
+        screens.add(screen); navigation.changed();
     }
-    private void back() {
+    public void back() {
         if (screens.size() == 1) return;
-        Screen removed = screens.remove(screens.size() - 1); context++;
+        Screen removed = screens.remove(screens.size() - 1); navigation.changed();
+        if (removed.busy) cancelWork();
+        if (removed.busy && !pausedBookId.isEmpty()) {
+            goLibrary(); notice = "操作已取消，可重新打开图书"; return;
+        }
+        if (removed.kind == Kind.INPUT) {
+            if (inputView != null) ((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(inputView.getWindowToken(), 0);
+            inputView = null; inputScreen = null; inputSubmit = null;
+        }
+        if (removed.kind == Kind.SEARCH_RESULTS || removed.kind == Kind.STORAGE || removed.kind == Kind.IMPORT_CLEANUP) cancelWork();
         if(removed.kind==Kind.IMPORT_MODE){selectedImportSource=null;selectedImportFile=null;modeRequest=null;}
         if(removed.kind==Kind.SOURCES){importRequest=null;pickerRequest=null;storagePermissionRequest=null;}
         if (removed.kind == Kind.IMPORT || removed.kind == Kind.FILES || removed.kind == Kind.SOURCES) cancelWork();
@@ -226,14 +231,15 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
             preferences.edit().putBoolean("reopen", false).apply(); loadLibrary(false);
         } else if (top().kind == Kind.LIBRARY) loadLibrary(false);
     }
-    private void closeOverlays() { while (top().kind.overlay()) back(); }
+    public void closeOverlays() { while (top().kind.overlay()) back(); }
     private void goLibrary() {
+        pausedBookId = "";
         pendingExport=null;
         importRequest=null;pickerRequest=null;modeRequest=null;storagePermissionRequest=null;selectedImportSource=null;selectedImportFile=null;
         if (session != null) libraryReturnId = session.book.id;
         savePosition(); cancelWork();
         while (screens.size() > 1) screens.remove(screens.size() - 1);
-        context++; session = null; page = null; requestedSpec = null;
+        navigation.changed(); session = null; page = null; requestedSpec = null;
         preferences.edit().putBoolean("reopen", false).apply(); loadLibrary(false);
     }
     private void menu() {
@@ -247,7 +253,11 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         screen.rows.add(new Row("settings", "阅读设置")); screen.rows.add(new Row("diagnostics", "按键诊断"));
         screen.rows.add(new Row("help", "按键说明"));
         if (session != null) screen.rows.add(new Row("library", "返回书架"));
-        screen.rows.add(new Row("exit", "退出应用")); screen.rows.add(new Row("back", "关闭菜单")); push(screen);
+        screen.rows.add(new Row("exit", "退出应用"));
+        screen.rows.add(Row.action("storage", "存储管理", libraryFeatures::openStorage));
+        if (target != null) libraryFeatures.addBookActions(screen, target);
+        if (base().kind == Kind.READER && session != null) readerFeatures.addMenu(screen);
+        screen.rows.add(new Row("back", "关闭菜单")); push(screen);
         if(target!=null){final long token=++generation;worker.submit(()->{
             try{CoverStore.Record cover=new CoverStore(this).get(target.id);if(cover==null)return;
                 runOnUiThread(()->{if(!valid(token)||!screens.contains(screen))return;String selectedItem=selectedId(screen);screen.rows.add(screen.rows.size()-1,new Row("export-cover","导出封面原图",target.id));restoreSelection(screen,selectedItem);if(top()==screen)builtOverlay=null;render();});
@@ -267,10 +277,12 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         String[] colors={"米白","白色","暖炭灰"};
         if(screen.group==0){screen.rows.add(new Row("appearance","界面外观"));screen.rows.add(new Row("reading-settings","正文阅读"));screen.rows.add(new Row("help","按键说明"));}
         else if(screen.group==1){screen.rows.add(new Row("ui-theme","界面主题："+colors[uiTheme]));screen.rows.add(new Row("shelf-style","书架样式："+new String[]{"纯文字","小书标","独立封面"}[bookStyle]));}
-        else {screen.rows.add(new Row("theme","阅读配色："+colors[theme]));screen.rows.add(new Row("font","字号："+fontSize));screen.rows.add(new Row("brightness","窗口亮度："+brightness*10+"%"));screen.rows.add(new Row("info","阅读信息栏："+(infoVisible?"显示":"隐藏")));}
+        else {screen.rows.add(new Row("theme","阅读配色："+colors[theme]));screen.rows.add(new Row("font","字号："+fontSize));screen.rows.add(new Row("brightness","窗口亮度："+brightness*10+"%"));screen.rows.add(new Row("info","阅读信息栏："+(infoVisible?"显示":"隐藏")));readerFeatures.addSettings(screen);}
     }
     private void adjust(int direction) {
         if (top().rows.isEmpty()) return;
+        Row setting = top().rows.get(top().selected);
+        if (setting.adjustment != null) { setting.adjustment.accept(direction); refreshSettings(top()); return; }
         switch (top().rows.get(top().selected).id) {
             case "ui-theme": uiTheme=(uiTheme+direction+3)%3;saveSettings();refreshSettings(top());return;
             case "shelf-style": bookStyle=(bookStyle+direction+3)%3;saveSettings();refreshSettings(top());return;
@@ -301,6 +313,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     private void activate() {
         if (top().rows.isEmpty()) return;
         Row row = top().rows.get(bound(top().selected, 0, top().rows.size() - 1));
+        if (row.action != null) { row.action.run(); return; }
         switch (row.id) {
             case "import": sources(); break;
             case "book": openBook((BookRepository.Book) row.value); break;
@@ -351,21 +364,28 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
             try {
                 if (initial) {
                     repository.cleanupStaging();
+                    new FontStore(this).cleanupStaging();
+                    try { storageManager.prepareReserve(); } catch (IOException error) { Log.w("SH02LReader", "Emergency reserve unavailable", error); }
                     try{new CoverStore(this).cleanupInterruptedImports();}catch(InterruptedIOException error){throw error;}catch(IOException error){Log.w("SH02LReader","Cover cleanup will retry on next startup",error);}
                 }
-                List<BookRepository.Book> books = repository.list();
+                Screen shelf = screens.get(0);
+                if (!libraryReturnId.isEmpty()) shelf.page = repository.pageOf(libraryReturnId, 50);
+                int total = repository.count(); shelf.page = Math.min(shelf.page, Math.max(0, (total - 1) / 50));
+                List<BookRepository.Book> books = repository.listPage(shelf.page * 50, 50);
+                BookRepository.Book recent = repository.get(preferences.getString("lastBook", ""));
                 runOnUiThread(() -> {
                     if (!valid(token)) return; loadingLibrary = false;
                     Screen library = screens.get(0);
                     String selectedId = libraryReturnId.isEmpty() ? selectedId(library) : libraryReturnId;
                     libraryReturnId = "";
                     library.rows.clear();
-                    String lastId = preferences.getString("lastBook", ""); BookRepository.Book last = null;
-                    for (BookRepository.Book book : books) if (book.id.equals(lastId)) last = book;
+                    BookRepository.Book last = recent;
                     if (last != null) library.rows.add(new Row("book", last.title, last));
                     library.rows.add(new Row("import", "＋ 导入 TXT"));
                     for (BookRepository.Book book : books)if(last==null||!last.id.equals(book.id))library.rows.add(new Row("book",book.title,book));
-                    library.title = "书架 · " + books.size() + " 本"; restoreSelection(library, selectedId);
+                    if (library.page > 0) library.rows.add(Row.action("previous-batch", "← 上一批图书", () -> libraryPage(-1)));
+                    if ((library.page + 1) * 50 < total) library.rows.add(Row.action("next-batch", "下一批图书 →", () -> libraryPage(1)));
+                    library.title = "书架 · " + total + " 本" + (total > 50 ? " · " + (library.page + 1) + "/" + ((total + 49) / 50) : ""); restoreSelection(library, selectedId);
                     invalidateLists(); render();
                     if (pendingUri != null) { Uri uri = pendingUri; pendingUri = null; importUri(uri); }
                     else if (initial && top().kind == Kind.LIBRARY && preferences.getBoolean("reopen", false) && last != null) openBook(last);
@@ -379,7 +399,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     private void sources(ImportRequest request) {
         if (base().kind == Kind.IMPORT) { notice = "请先完成或取消当前导入"; return; }
         pendingExport=null;
-        closeOverlays();importRequest=request;Screen screen = new Screen(Kind.SOURCES, request.kind==ImportKind.COVER?"导入封面":"导入 TXT");
+        closeOverlays();importRequest=request;Screen screen = new Screen(Kind.SOURCES, request.kind==ImportKind.COVER?"导入封面":request.kind==ImportKind.FONT?"导入字体":"导入 TXT");
         File importDirectory = getExternalFilesDir("import");
         if (importDirectory != null) { importDirectory.mkdirs(); screen.rows.add(new Row("directory", "应用导入文件夹", importDirectory)); }
         screen.rows.add(new Row("shared", "手机存储 / 内存卡"));
@@ -428,7 +448,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     private void systemPicker() {
         try {
             pickerRequest=importRequest;if(pickerRequest==null)return;
-            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(pickerRequest.kind==ImportKind.COVER?"image/*":"text/*")
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(pickerRequest.kind==ImportKind.COVER?"image/*":pickerRequest.kind==ImportKind.FONT?"*/*":"text/*")
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
             startActivityForResult(intent, 2);
         } catch (ActivityNotFoundException error) {pickerRequest=null; notice = "设备没有系统文件选择器，请使用手机存储入口"; }
@@ -452,14 +472,15 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         // Directories replace the file screen while parent frames retain their exact selection.
         Screen screen = new Screen(Kind.FILES, directory.getName().isEmpty() ? "文件" : directory.getName());
         screen.directory = directory;
-        if (top().kind == Kind.FILES && top().directory == null) { screens.remove(screens.size() - 1); context++; }
+        if (top().kind == Kind.FILES && top().directory == null) { screens.remove(screens.size() - 1); navigation.changed(); }
         if (screens.size() >= 12) { notice = "目录层级过深，请用系统文件选择"; return; }
-        screens.add(screen); context++; notice = "读取目录…";
+        screens.add(screen); navigation.changed(); notice = "读取目录…";
         final long token = ++generation;
         final boolean images=importRequest!=null&&importRequest.kind==ImportKind.COVER;
+        final boolean fonts=importRequest!=null&&importRequest.kind==ImportKind.FONT;
         worker.submit(() -> {
             try {
-                File[] entries = directory.listFiles(file -> {String name=file.getName().toLowerCase(Locale.ROOT);return file.isDirectory()||(images?(name.endsWith(".jpg")||name.endsWith(".jpeg")||name.endsWith(".png")||name.endsWith(".webp")):name.endsWith(".txt"));});
+                File[] entries = directory.listFiles(file -> {String name=file.getName().toLowerCase(Locale.ROOT);return file.isDirectory()||(images?(name.endsWith(".jpg")||name.endsWith(".jpeg")||name.endsWith(".png")||name.endsWith(".webp")):fonts?(name.endsWith(".ttf")||name.endsWith(".otf")):name.endsWith(".txt"));});
                 if (entries == null) throw new IOException("Cannot list directory");
                 if (entries.length > 10000) throw new IOException("Too many files; select a narrower folder");
                 Arrays.sort(entries, (left, right) -> {
@@ -498,7 +519,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         if (base().kind == Kind.IMPORT) return;
         pendingExport=null;
         savePosition(); cancelWork(); closeOverlays();
-        Screen screen = new Screen(Kind.IMPORT, request.kind==ImportKind.COVER?"导入封面":"导入 TXT"); screen.rows.add(new Row("back", "取消导入")); push(screen);
+        Screen screen = new Screen(Kind.IMPORT, request.kind==ImportKind.COVER?"导入封面":request.kind==ImportKind.FONT?"导入字体":"导入 TXT"); screen.rows.add(new Row("back", "取消导入")); push(screen);
         notice = "准备导入：" + source.displayName(); render();
         final long token = ++generation;
         worker.submit(() -> {
@@ -514,9 +535,10 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
                     }
                 };
                 ImportCoordinator.Outcome outcome=coordinator.run(source,mode,new ImportCoordinator.Committer(){
-                    public long peakBytes(long known)throws IOException{if(request.kind==ImportKind.TXT)return ImportCoordinator.Committer.super.peakBytes(known);try{return known<0?1024*1024:Math.addExact(known,1024*1024);}catch(ArithmeticException error){throw new IOException("Import budget overflow",error);}}
+                    public long peakBytes(long known)throws IOException{if(request.kind==ImportKind.TXT)return ImportCoordinator.Committer.super.peakBytes(known);try{return known<0?1024*1024:request.kind==ImportKind.FONT?Math.addExact(Math.multiplyExact(known,2),1024*1024):Math.addExact(known,1024*1024);}catch(ArithmeticException error){throw new IOException("Import budget overflow",error);}}
                     public ImportCoordinator.CommittedAsset commit(ImportSource input,TextImporter.Observer guarded)throws IOException{
                         if(request.kind==ImportKind.TXT){BookRepository.Book book=repository.importBook(input.open(),source.displayName(),guarded);return new ImportCoordinator.CommittedAsset(book.id,new File(repository.directory(book.id),"original.bin"),book.id);}
+                        if(request.kind==ImportKind.FONT)return new FontStore(MainActivity.this).importFont(input.open(),guarded);
                         if(repository.get(request.targetBookId)==null)throw new IOException("Cover target unavailable");CoverStore.Record cover=new CoverStore(MainActivity.this).importCover(request.targetBookId,input.open(),source.displayName(),guarded);
                         return new ImportCoordinator.CommittedAsset(cover.bookId,cover.original,cover.sha256);
                     }
@@ -527,8 +549,9 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
                     String result=outcome.status==ImportCoordinator.Status.MOVED?"移动完成":outcome.status==ImportCoordinator.Status.COPIED_SOURCE_RETAINED?"导入完成，原文件未删除":"导入完成";
                     Screen help=top().kind==Kind.HELP?top():null;
                     while (screens.size() > 1) screens.remove(screens.size() - 1);
-                    context++;importRequest=null;modeRequest=null;selectedImportSource=null;selectedImportFile=null;
+                    navigation.changed();importRequest=null;modeRequest=null;selectedImportSource=null;selectedImportFile=null;
                     if(book!=null){openBook(book);importCompletionNotice=result;notice=result;}
+                    else if(request.kind==ImportKind.FONT){readingSettings.invalidateFont();readingSettings.font=4;readingSettings.save();goLibrary();notice="字体导入完成，已设为正文字体";}
                     else{libraryReturnId=request.targetBookId;goLibrary();notice=result;}
                     if(help!=null)push(help);
                     Toast.makeText(MainActivity.this,result,Toast.LENGTH_LONG).show();render();
@@ -561,17 +584,18 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         }catch(Exception ignored){}return false;
     }
     private void openBook(BookRepository.Book book) {
+        pausedBookId = "";
         savePosition(); cancelWork();
         while (screens.size() > 1) screens.remove(screens.size() - 1);
-        screens.add(new Screen(Kind.READER, book.title)); context++;
+        screens.add(new Screen(Kind.READER, book.title)); navigation.changed();
         session = null; page = null; pendingTurns = 0; requestedSpec = null; anchor = book.offset;
         notice = "打开图书…"; render();
         final long token = ++generation;
         worker.submit(() -> {
             try {
                 BookRepository.Book latest = repository.get(book.id); if (latest == null) throw new IOException("Book not found");
-                TextImporter.Result index = TextImporter.readIndex(repository.directory(book.id));
-                Session opened = new Session(latest, index, repository.directory(book.id));
+                TextImporter.Result index = repository.ensureCache(book.id, null);
+                ReaderSession opened = new ReaderSession(latest, index, repository.directory(book.id));
                 runOnUiThread(() -> {
                     if (!valid(token)) return; session = opened;
                     anchor = boundOffset(livePositions.containsKey(book.id) ? livePositions.get(book.id) : latest.offset, index.length);
@@ -586,14 +610,14 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     private void requestLayoutIfReady() {
         if (session == null || pageView == null || pageView.getWidth() < 1 || pageView.getHeight() < 1) return;
         TxtPaginator.Spec spec = new TxtPaginator.Spec(pageView.getWidth(), pageView.getHeight(),
-                fontSize * getResources().getDisplayMetrics().scaledDensity, dp(4), Palette.forTheme(theme).foreground);
+                fontSize * getResources().getDisplayMetrics().scaledDensity, dp(readingSettings.lineExtra), Palette.forTheme(theme).foreground, readingSettings.typeface());
         if (spec.equals(requestedSpec)) { if (page != null && spec.equals(page.spec)) pageView.show(page); return; }
         int queued = pendingTurns;
         requestedSpec = spec; seek(anchor); pendingTurns = queued;
     }
     private void seek(long offset) {
         if (session == null || requestedSpec == null) return;
-        final Session target = session; final TxtPaginator.Spec spec = requestedSpec;
+        final ReaderSession target = session; final TxtPaginator.Spec spec = requestedSpec;
         final long token = ++generation; anchor = boundOffset(offset, target.book.length); pendingTurns = 0; layoutBusy = true;
         final long position = anchor;
         worker.submit(() -> {
@@ -608,13 +632,13 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     private void pumpTurns() {
         if (layoutBusy || pendingTurns == 0 || session == null || page == null || !page.spec.equals(requestedSpec)) return;
         int direction = pendingTurns > 0 ? 1 : -1; pendingTurns -= direction; layoutBusy = true;
-        final Session target = session; final TxtPaginator.Page old = page; final long token = ++generation;
+        final ReaderSession target = session; final TxtPaginator.Page old = page; final long token = ++generation;
         worker.submit(() -> {
             try { TxtPaginator.Page result = target.paginator.move(old, direction); publishPage(token, target, result, result.start == old.start); }
             catch (Exception error) { fail(token, "翻页失败，请返回书架后重试", error); }
         });
     }
-    private void publishPage(long token, Session target, TxtPaginator.Page result, boolean boundary) {
+    private void publishPage(long token, ReaderSession target, TxtPaginator.Page result, boolean boundary) {
         runOnUiThread(() -> {
             if (!valid(token) || session != target) return;
             page = result; anchor = result.start; layoutBusy = false;
@@ -640,7 +664,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         if (session == null) return;
         Screen screen = new Screen(Kind.BOOKMARKS, "书签"); screen.rows.add(new Row("bookmark-add", "添加当前位置书签"));
         screen.rows.add(new Row("back", "返回")); push(screen);
-        final Session target = session;
+        final ReaderSession target = session;
         // Small metadata reads use a separate serial writer queue only through the library worker.
         if (layoutBusy) { notice = "当前页仍在加载，稍后重新打开书签"; return; }
         final long token = ++generation;
@@ -650,7 +674,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
                 runOnUiThread(() -> {
                     if (!valid(token) || !screens.contains(screen)) return;
                     screen.rows.remove(screen.rows.size() - 1);
-                    for (TextImporter.Chapter bookmark : bookmarks) screen.rows.add(new Row("chapter", bookmark.title, bookmark));
+                    for (TextImporter.Chapter bookmark : bookmarks) screen.rows.add(Row.action("bookmark-" + bookmark.offset, bookmark.title, () -> libraryFeatures.bookmark(target.book, bookmark)));
                     screen.rows.add(new Row("back", "返回")); invalidateLists(); render();
                 });
             } catch (Exception error) { fail(token, "书签读取失败", error); }
@@ -677,6 +701,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         Log.e("SH02LReader", message, error);
         runOnUiThread(() -> {
             if (!valid(token)) return; layoutBusy = false; loadingLibrary = false; notice = message;
+            if (!pausedBookId.isEmpty()) { goLibrary(); notice = message; }
             if (pageView != null && page == null) pageView.message("暂时无法显示正文，F4 返回"); render();
         });
     }
@@ -686,18 +711,18 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         }
     }
 
-    private void render() {
+    public void render() {
         if (destroyed || isFinishing()) return;
         rememberSelection(builtBase,baseList);rememberSelection(builtOverlay,overlayList);
         Screen content = base();Palette palette=Palette.forTheme(content.kind==Kind.READER?theme:uiTheme);
         background=palette.background;foreground=palette.foreground;secondary=palette.secondary;surface=palette.surface;
-        String style = content.kind==Kind.READER ? "reader:"+theme+":"+fontSize+":"+infoVisible : "ui:"+uiTheme+":"+bookStyle;
+        String style = content.kind==Kind.READER ? "reader:"+theme+":"+fontSize+":"+infoVisible+":"+readingSettings.signature() : "ui:"+uiTheme+":"+bookStyle;
         if(builtOverlayTheme!=uiTheme){builtOverlay=null;builtOverlayTheme=uiTheme;}
         if (builtBase != content || !style.equals(builtStyle)) {
             builtBase = content; builtStyle = style; builtOverlay = null;
             if(baseList!=null&&baseList.getAdapter() instanceof LibraryAdapter)((LibraryAdapter)baseList.getAdapter()).close();
             root.removeAllViews(); root.setBackgroundColor(background);
-            pageView = null; helpView=null; baseList = null; overlayList = null; diagnosticView = infoView = noticeView = null;
+            pageView = null; helpView=null; inputView=null; baseList = null; overlayList = null; diagnosticView = infoView = noticeView = null;
             root.addView(buildContent(content), new FrameLayout.LayoutParams(-1, -1));
             overlayHost = new FrameLayout(this); root.addView(overlayHost, new FrameLayout.LayoutParams(-1, -1));
         }
@@ -714,7 +739,8 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
             // Another key may open a screen before the scheduled list layout runs.
             if(offset!=null){top().selectionTop=offset;top().hasSelectionTop=true;}
             if (!active.hasFocus()) active.requestFocus();
-        } else if(top().kind==Kind.HELP&&helpView!=null)helpView.requestFocus();
+        } else if(top().kind==Kind.INPUT&&inputView!=null){if(!inputView.hasFocus())inputView.editor.requestFocus();}
+        else if(top().kind==Kind.HELP&&helpView!=null)helpView.requestFocus();
         else if (top().kind == Kind.READER && pageView != null && !pageView.hasFocus()) pageView.requestFocus();
         if (noticeView != null) noticeView.setText(notice);
         if (infoView != null) infoView.setText(session == null ? "" : percent(anchor, session.book.length)
@@ -725,7 +751,8 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         if (top().kind == Kind.READER) requestLayoutIfReady();
     }
     private View buildContent(Screen screen) {
-        LinearLayout column = vertical(); column.setPadding(dp(12), dp(10), dp(12), dp(6));
+        LinearLayout column = vertical();
+        column.setPadding(dp(screen.kind==Kind.READER?readingSettings.horizontal:12),dp(screen.kind==Kind.READER?readingSettings.vertical:10),dp(screen.kind==Kind.READER?readingSettings.horizontal:12),dp(screen.kind==Kind.READER?readingSettings.vertical:6));
         TextView title = new UiStyle(this,Palette.forTheme(screen.kind==Kind.READER?theme:uiTheme)).title(screen.title);
         title.setTag("screen-title");if(screen.kind==Kind.READER)title.setTextSize(12);column.addView(title);
         if (screen.kind == Kind.READER) {
@@ -751,16 +778,18 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         column.addView(footer);return column;
     }
     private void buildOverlay(Screen screen) {
-        helpView=null;overlayList=null;
+        helpView=null;overlayList=null;inputView=null;
         Palette palette=Palette.forTheme(uiTheme);UiStyle style=new UiStyle(this,palette);
         FrameLayout shade = new FrameLayout(this); shade.setTag("overlay"); shade.setBackgroundColor(0x99000000); shade.setClickable(true);
         LinearLayout panel = vertical(); panel.setPadding(dp(12), dp(12), dp(12), dp(10)); panel.setBackground(round(palette.surface));
         TextView title=style.title(screen.title);panel.addView(title);
         if(screen.kind==Kind.IMPORT_MODE){TextView explanation=text(notice,12,palette.secondary);explanation.setPadding(0,0,0,dp(10));panel.addView(explanation);}
-        if(screen.kind==Kind.HELP){helpView=new KeyHelpView(this);helpView.setPalette(palette);helpView.setReadingContext(screen.helpReading);String[] functions=screen.helpFunctions;helpView.setFunctionLabels(functions[0],functions[1],functions[2],functions[3]);panel.addView(helpView,new LinearLayout.LayoutParams(-1,0,1));}
+        if(screen.kind==Kind.INPUT){inputView=new ReaderInputView(this,palette,inputInitial,inputNumeric,this::submitInput,()->{back();render();});panel.addView(inputView,new LinearLayout.LayoutParams(-1,-2));}
+        else if(screen.kind==Kind.HELP){helpView=new KeyHelpView(this);helpView.setPalette(palette);helpView.setReadingContext(screen.helpReading);String[] functions=screen.helpFunctions;helpView.setFunctionLabels(functions[0],functions[1],functions[2],functions[3]);panel.addView(helpView,new LinearLayout.LayoutParams(-1,0,1));}
         else{overlayList = list(screen); panel.addView(overlayList, new LinearLayout.LayoutParams(-1, 0, 1));}
-        SoftKeyBar footer=new SoftKeyBar(this);footer.setHints(screen.kind==Kind.HELP?"↑↓ 滚动":"↑↓ 选择",screen.kind==Kind.HELP?"0 关闭":"确认 执行","F2 返回",palette);panel.addView(footer);
+        SoftKeyBar footer=new SoftKeyBar(this);footer.setHints(screen.kind==Kind.INPUT?"文字 / 数字输入":screen.kind==Kind.HELP?"↑↓ 滚动":"↑↓ 选择",screen.kind==Kind.INPUT?"F3 确认":screen.kind==Kind.HELP?"0 关闭":"确认 执行","F2 返回",palette);panel.addView(footer);
         int height = Math.min((root.getHeight()>0?root.getHeight():getResources().getDisplayMetrics().heightPixels) - dp(40), Math.min(8,screen.rows.size())*(style.rowHeight(64)+dp(6))+dp(screen.kind==Kind.IMPORT_MODE?196:100));
+        if(screen.kind==Kind.INPUT)height=dp(300);
         if(screen.kind==Kind.HELP)height=(root.getHeight()>0?root.getHeight():getResources().getDisplayMetrics().heightPixels)-dp(40);
         FrameLayout.LayoutParams parameters = new FrameLayout.LayoutParams(-1, Math.max(dp(180), height), Gravity.CENTER);
         parameters.setMargins(dp(16), dp(20), dp(16), dp(20)); shade.addView(panel, parameters);
@@ -776,7 +805,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
             LibraryAdapter adapter=new LibraryAdapter(this,()->screen.selected,()->top()==screen&&resumed&&hasWindowFocus());
             List<LibraryAdapter.Item> items=new ArrayList<>();String last=preferences.getString("lastBook","");
             for(Row row:screen.rows){BookRepository.Book book=row.value instanceof BookRepository.Book?(BookRepository.Book)row.value:null;
-                items.add(new LibraryAdapter.Item(book,book!=null&&book.id.equals(last),book==null?0:livePositions.containsKey(book.id)?livePositions.get(book.id):book.offset));}
+                items.add(new LibraryAdapter.Item(book,book!=null&&book.id.equals(last),book==null?0:livePositions.containsKey(book.id)?livePositions.get(book.id):book.offset,row.id,row.label));}
             adapter.setItems(items);adapter.setStyle(bookStyle,Palette.forTheme(uiTheme));list.setAdapter(adapter);
         }else list.setAdapter(new BaseAdapter() {
             public int getCount() { return screen.rows.size(); }
@@ -811,7 +840,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         return row.value instanceof BookRepository.Book ? ((BookRepository.Book) row.value).id : row.id;
     }
     private void restoreSelection(Screen screen, String id) {
-        screen.selected = 0;
+        screen.selected = bound(screen.selected,0,Math.max(0,screen.rows.size()-1));
         for (int i = 0; i < screen.rows.size(); i++) {
             Row row = screen.rows.get(i); String value = row.value instanceof BookRepository.Book ? ((BookRepository.Book) row.value).id : row.id;
             if (value.equals(id)) { screen.selected = i; break; }
@@ -857,11 +886,79 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         resumed=false;UiStyle.pauseMarquees(root);super.onPause(); router.reset(); savePosition(); saveSettings();
         diagnosticStore.save(snapshot(), null);
     }
-    @Override protected void onResume() {super.onResume();resumed=true;if(root!=null)render();}
+    @Override protected void onResume() {super.onResume();resumed=true;if(progressWriter!=null)progressWriter.retry();if(root!=null)render();}
     @Override protected void onDestroy() {
         if(baseList!=null&&baseList.getAdapter() instanceof LibraryAdapter)((LibraryAdapter)baseList.getAdapter()).close();
         destroyed = true; generation++; worker.close(); progressWriter.close(); diagnosticStore.close();
         // The application-scoped database remains available while outstanding durable writes finish.
         super.onDestroy();
+    }
+
+    private void libraryPage(int direction) {
+        Screen shelf = screens.get(0); shelf.page = Math.max(0, shelf.page + direction);
+        shelf.rows.clear(); shelf.selected = 0; shelf.hasSelectionTop = false; libraryReturnId = "";
+        invalidateLists(); loadLibrary(false); render();
+    }
+    @Override public Activity activity() { return this; }
+    @Override public BookRepository repository() { return repository; }
+    @Override public StorageManager storage() { return storageManager; }
+    @Override public ReaderSession reading() { return session; }
+    @Override public ReadingSettings readingSettings() { return readingSettings; }
+    @Override public long currentOffset() { return anchor; }
+    @Override public void notice(String message) { notice = message; render(); }
+    @Override public <T> void task(String message, FeatureHost.Work<T> work, Consumer<T> done) {
+        Screen origin = top().kind == Kind.INPUT && screens.size() > 1 ? screens.get(screens.size() - 2) : top();
+        final long token = ++generation; origin.busy = true; notice = message; render();
+        worker.submit(() -> {
+            try {
+                T result = work.run();
+                runOnUiThread(() -> { if (valid(token) && screens.contains(origin)) { origin.busy = false; done.accept(result); render(); } });
+            } catch (Exception error) { fail(token, operationError(error), error); }
+        });
+    }
+    @Override public void input(String title, String initial, boolean numeric, FeatureHost.InputSubmit submit) {
+        inputScreen = new Screen(Kind.INPUT, title); inputInitial = initial; inputNumeric = numeric; inputSubmit = submit;
+        push(inputScreen); render();
+        if (inputView != null) { inputView.editor.requestFocus(); inputView.editor.post(() -> {
+            if (top().kind == Kind.INPUT && inputView != null) ((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).showSoftInput(inputView.editor, InputMethodManager.SHOW_IMPLICIT);
+        }); }
+    }
+    private void submitInput() {
+        if (inputView == null || inputSubmit == null || top() != inputScreen) return;
+        Screen origin = inputScreen; FeatureHost.InputSubmit submit = inputSubmit;
+        String value = inputView.editor.getText().toString();
+        String error = submit.submit(value);
+        if (error != null) { if (inputView != null) inputView.error(error); }
+        else if (top() == origin) { back(); render(); }
+    }
+    @Override public void refreshShelf(String preferredId) { libraryReturnId = preferredId; goLibrary(); }
+    @Override public void open(BookRepository.Book book) { openBook(book); }
+    @Override public void seekTo(long offset) { seek(offset); }
+    @Override public void quiesceBook(String id) {
+        if (session != null && session.book.id.equals(id)) {
+            savePosition(); cancelWork(); pausedBookId = id; session = null; page = null; requestedSpec = null;
+            preferences.edit().putBoolean("reopen", false).apply();
+        }
+        livePositions.remove(id);
+    }
+    @Override public void forgetBook(String id) {
+        livePositions.remove(id); progressWriter.forget(id);
+        if (committedBook.equals(id)) { committedBook = ""; committedOffset = -1; }
+        if (id.equals(preferences.getString("lastBook", ""))) preferences.edit().remove("lastBook").putBoolean("reopen", false).apply();
+    }
+    @Override public void retryProgress() { progressWriter.retry(); }
+    @Override public void awaitProgress() throws Exception { if (!progressWriter.awaitIdle(5000)) throw new IOException("阅读位置仍待保存，请释放空间后重试"); }
+    @Override public void layoutChanged() {
+        appearanceChanged();
+        for (Screen screen : screens) if (screen.kind == Kind.SETTINGS) refreshSettings(screen);
+        invalidateLists(); render();
+    }
+    @Override public void importFont() { sources(new ImportRequest(ImportKind.FONT,"")); render(); }
+    private static String operationError(Exception error) {
+        String message = String.valueOf(error.getMessage()).toLowerCase(Locale.ROOT);
+        if (message.contains("space") || message.contains("storage") || message.contains("待保存")) return "操作未完成：空间不足或进度仍待保存，请清理空间后重试";
+        if (message.contains("encoding") || message.contains("decode") || message.contains("malformed")) return "无法按所选编码读取，原始文件已保留";
+        if (message.contains("outside") || message.contains("unsafe") || message.contains("selection")) return "文件位置已变化，请返回并重新选择";
+        return "操作未完成，请检查文件、权限和可用空间";
     }
 }

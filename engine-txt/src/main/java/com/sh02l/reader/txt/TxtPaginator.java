@@ -13,16 +13,21 @@ public final class TxtPaginator {
     public static final class Spec {
         public final int width, height, color;
         public final float textSize, lineExtra;
+        public final Typeface typeface;
         public Spec(int width, int height, float textSize, float lineExtra, int color) {
+            this(width, height, textSize, lineExtra, color, Typeface.DEFAULT);
+        }
+        public Spec(int width, int height, float textSize, float lineExtra, int color, Typeface typeface) {
             if (width < 1 || height < 1 || textSize <= 0) throw new IllegalArgumentException("layout");
             this.width = width; this.height = height; this.textSize = textSize; this.lineExtra = lineExtra; this.color = color;
+            this.typeface = typeface == null ? Typeface.DEFAULT : typeface;
         }
         @Override public boolean equals(Object other) {
             if (!(other instanceof Spec)) return false; Spec value = (Spec) other;
             return width == value.width && height == value.height && textSize == value.textSize
-                    && lineExtra == value.lineExtra && color == value.color;
+                    && lineExtra == value.lineExtra && color == value.color && typeface.equals(value.typeface);
         }
-        @Override public int hashCode() { return Objects.hash(width, height, textSize, lineExtra, color); }
+        @Override public int hashCode() { return Objects.hash(width, height, textSize, lineExtra, color, typeface); }
     }
     public static final class Page {
         public final long start, end, block;
@@ -72,7 +77,7 @@ public final class TxtPaginator {
         long start = text.boundary(number), end = text.boundary(number + 1);
         String content = text.read(start, (int) (end - start));
         TextPaint paint = new TextPaint(TextPaint.ANTI_ALIAS_FLAG | TextPaint.SUBPIXEL_TEXT_FLAG);
-        paint.setTextSize(spec.textSize); paint.setColor(spec.color); paint.setTypeface(Typeface.DEFAULT);
+        paint.setTextSize(spec.textSize); paint.setColor(spec.color); paint.setTypeface(spec.typeface);
         StaticLayout layout = StaticLayout.Builder.obtain(content, 0, content.length(), paint, spec.width)
                 .setAlignment(Layout.Alignment.ALIGN_NORMAL).setIncludePad(false)
                 .setLineSpacing(spec.lineExtra, 1f).setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE)

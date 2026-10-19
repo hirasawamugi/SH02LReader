@@ -16,6 +16,8 @@ final class NavigationListView extends ListView {
     }
 
     void restoreSelection(int position,int offset) {
+        // Fresh launches can inherit touch mode; the selected row must still be a real native selection.
+        if(isInTouchMode())requestFocusFromTouch();
         restoring=true;setSelectionFromTop(position,offset);
     }
 

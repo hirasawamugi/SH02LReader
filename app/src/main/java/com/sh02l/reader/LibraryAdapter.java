@@ -10,7 +10,9 @@ import java.util.function.*;
 final class LibraryAdapter extends BaseAdapter implements AutoCloseable {
     static final class Item {
         final BookRepository.Book book; final boolean continuing;final long offset;
-        Item(BookRepository.Book book,boolean continuing,long offset) {this.book=book;this.continuing=continuing;this.offset=offset;}
+        final String actionId, label;
+        Item(BookRepository.Book book,boolean continuing,long offset) {this(book,continuing,offset,"import","导入 TXT");}
+        Item(BookRepository.Book book,boolean continuing,long offset,String actionId,String label) {this.book=book;this.continuing=continuing;this.offset=offset;this.actionId=actionId;this.label=label;}
     }
     private final Context context;private final IntSupplier selection;private final BooleanSupplier active;
     private List<Item> items=Collections.emptyList();private int style=AppearanceState.ICON;private Palette palette=Palette.forTheme(0);

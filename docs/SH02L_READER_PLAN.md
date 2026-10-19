@@ -1,7 +1,7 @@
 # SH-02L 阅读器实施计划
 
 日期：2026-10-18（Asia/Shanghai）
-状态：M0/M1 已交付并有实体按键及 TXT 真机验收记录。用户要求将 M1.5 当前问答和样稿整理为实现计划，在新对话实施；帮助页对齐问题已记入待办，本轮不改样稿。M1.5 和 M2 的产品代码尚未开始。详见 `HANDOFF.md`、`superpowers/specs/2026-10-18-m1-5-theme-design.md` 和 `superpowers/plans/2026-10-18-m1-5-theme-ui.md`。
+状态：M0/M1/M1.5 已交付；M2 日常阅读与存储管理已实现并完成关键代码/原生回归，正式候选与升级记录见 `M2_VALIDATION.md`。用户于 2026-10-19 授权适当减少重复测试，保留数据安全和输入/定位检查；M3 长期试读与性能验收、M4 EPUB 仍按下述阶段继续。当前执行范围与结构见 `HANDOFF.md`、`superpowers/specs/2026-10-19-m2-daily-reading-design.md` 和 `superpowers/plans/2026-10-19-m2-daily-reading.md`。
 开发负责人：Codex，负责源码实现、构建、测试、问题定位和 APK 交付。
 已确认范围：先完成稳定的本地 TXT 阅读，随后加入 EPUB。
 

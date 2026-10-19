@@ -30,6 +30,14 @@ public final class KeyRouter {
 
     public KeyRouter(Target target) { this.target = target; }
 
+    /** A key that opened an input screen still owns its remaining repeat/release events. */
+    public boolean owns(KeyInput input) {
+        Key key = Key.normalize(input.code, input.scan);
+        long identity = ((long) input.deviceId << 32) | (key.ordinal() & 0xffffffffL);
+        Cycle cycle = cycles.get(identity);
+        return cycle != null && cycle.downTime == input.downTime;
+    }
+
     public Result dispatch(KeyInput input) {
         Key key = Key.normalize(input.code, input.scan);
         if (key == Key.UNKNOWN) return result(key, false, Action.NONE, "unmapped");

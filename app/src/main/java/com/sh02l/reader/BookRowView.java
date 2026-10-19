@@ -13,7 +13,7 @@ final class BookRowView extends LinearLayout {
     private final ImageView image;
     private final UiStyle.Label name;
     private final TextView detail;
-    private int mode; private boolean importing;private String boundBook="";private long bindToken;private Palette colors;
+    private int mode; private boolean importing;private String boundBook="",actionId="import";private long bindToken;private Palette colors;
     BookRowView(Context context) {
         super(context);setOrientation(HORIZONTAL);setGravity(Gravity.CENTER_VERTICAL);setFocusable(false);
         image=new ImageView(context);image.setTag("book-cover");addView(image);
@@ -26,13 +26,13 @@ final class BookRowView extends LinearLayout {
     private int dp(int value) { return Math.round(value*getResources().getDisplayMetrics().density); }
     private int textHeight(TextView view) { android.graphics.Paint.FontMetrics fm=view.getPaint().getFontMetrics();return (int)Math.ceil(fm.bottom-fm.top); }
     void bind(LibraryAdapter.Item item,int mode,Palette palette,boolean selected) {
-        String id=item.book==null?"import":item.book.id;boolean resetImage=!boundBook.equals(id)||this.mode!=mode;
+        String id=item.book==null?item.actionId:item.book.id;boolean resetImage=!boundBook.equals(id)||this.mode!=mode;actionId=item.actionId;
         this.mode=mode;colors=palette;boundBook=id;importing=item.book==null;UiStyle style=new UiStyle(getContext(),palette);
-        String title=importing?"导入 TXT":item.book.title;
-        String meta=importing?"手机存储 / 内存卡":(item.continuing?"继续阅读 · ":"已读 ")+String.format(Locale.ROOT,"%.1f%%",item.book.length==0?0:100.0*item.offset/item.book.length);
+        String title=importing?item.label:item.book.title;
+        String meta=importing?("import".equals(actionId)?"手机存储 / 内存卡":"确认切换图书批次"):(item.continuing?"继续阅读 · ":"已读 ")+String.format(Locale.ROOT,"%.1f%%",item.book.length==0?0:100.0*item.offset/item.book.length);
         if(!TextUtils.equals(name.getText(),title))name.setText(title);detail.setText(meta);
         name.setTextColor(palette.foreground);detail.setTextColor(palette.secondary);
-        setContentDescription(title+"，"+meta);setTag(importing?"item:import":"item:book");
+        setContentDescription(title+"，"+meta);setTag(importing?"item:"+actionId:"item:book");
         setPadding(dp(14),dp(14),dp(14),dp(14));
         image.setVisibility(mode==AppearanceState.TEXT?GONE:VISIBLE);
         LayoutParams icon=new LayoutParams(dp(mode==AppearanceState.COVER?56:20),dp(mode==AppearanceState.COVER?84:20));icon.rightMargin=dp(10);image.setLayoutParams(icon);

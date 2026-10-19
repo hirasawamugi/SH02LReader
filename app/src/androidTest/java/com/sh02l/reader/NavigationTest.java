@@ -134,12 +134,13 @@ public final class NavigationTest extends InstrumentationTestCase {
             }); return saved[0];
         }, 10000);
         press(KeyEvent.KEYCODE_6); await(this::ready, 10000); press(KeyEvent.KEYCODE_POUND);
-        await(() -> find("item:chapter") != null, 10000);
+        await(() -> find("item:bookmark-" + bookmarked) != null, 10000);
         // Select the bookmark with this exact position; older fixtures may already have bookmarks.
         List<TextImporter.Chapter> stored = BookRepository.obtain(activity).bookmarks(
                 BookRepository.obtain(activity).list().stream().filter(book -> "导航验证".equals(book.title)).findFirst().get().id);
         int index = 1; for (TextImporter.Chapter bookmark : stored) { if (bookmark.offset == bookmarked) break; index++; }
         for (int i = 0; i < index; i++) press(KeyEvent.KEYCODE_DPAD_DOWN);
+        press(KeyEvent.KEYCODE_DPAD_CENTER); // M2 exposes jump / rename / delete for the selected bookmark.
         press(KeyEvent.KEYCODE_DPAD_CENTER); await(this::ready, 10000);
         assertTrue(offset() <= bookmarked && endOffset() > bookmarked);
     }
