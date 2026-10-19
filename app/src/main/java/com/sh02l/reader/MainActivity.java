@@ -349,7 +349,10 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
         final long token = ++generation;
         worker.submit(() -> {
             try {
-                if (initial) repository.cleanupStaging();
+                if (initial) {
+                    repository.cleanupStaging();
+                    try{new CoverStore(this).cleanupInterruptedImports();}catch(InterruptedIOException error){throw error;}catch(IOException error){Log.w("SH02LReader","Cover cleanup will retry on next startup",error);}
+                }
                 List<BookRepository.Book> books = repository.list();
                 runOnUiThread(() -> {
                     if (!valid(token)) return; loadingLibrary = false;
@@ -823,6 +826,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target {
     String readingText() { return page == null ? "" : page.text(); }
     boolean positionCommitted() { return session != null && committedBook.equals(session.book.id) && committedOffset == anchor; }
     boolean readingReady() { return base().kind==Kind.READER && session != null && page != null && !layoutBusy && page.spec.equals(requestedSpec); }
+    boolean libraryReady() { return base().kind==Kind.LIBRARY&&!loadingLibrary; }
     String screenKind() { return top().kind.name(); }
     @Override public void onWindowFocusChanged(boolean focused) {
         super.onWindowFocusChanged(focused); if (router == null) return;

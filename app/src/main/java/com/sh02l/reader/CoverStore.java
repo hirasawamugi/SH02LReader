@@ -6,6 +6,7 @@ import com.sh02l.reader.core.text.TextImporter;
 import java.io.*;
 import java.security.*;
 import java.util.*;
+import java.nio.file.*;
 final class CoverStore {
     private static final Object LOCK=new Object();
     private final File root;
@@ -15,6 +16,30 @@ final class CoverStore {
     }
     CoverStore(Context context){root=new File(context.getFilesDir(),"covers");}
     private File directory(String id)throws IOException {if(id==null||!id.matches("[0-9a-f]{64}"))throw new IOException("Invalid cover target");return new File(root,id);}
+    void cleanupInterruptedImports()throws IOException{
+        synchronized(LOCK){
+            if(!root.isDirectory())return;
+            // Stream directory entries; never read image contents or follow directory symlinks.
+            try(DirectoryStream<Path> books=Files.newDirectoryStream(root.toPath())){
+                for(Path entry:books){TextImporter.check(null);File book=entry.toFile();
+                    if(!book.getName().matches("[0-9a-f]{64}")||!Files.isDirectory(entry,LinkOption.NOFOLLOW_LINKS)||!book.getCanonicalFile().getParentFile().equals(root.getCanonicalFile()))continue;
+                    String current=null;boolean known=!new File(book,"current.bin").exists()&&!new File(book,"current.bin.bak").exists();
+                    if(!known)try{current=currentRevision(book);known=true;}catch(IOException ignored){/* Preserve revisions when a damaged pointer cannot establish ownership. */}
+                    try(DirectoryStream<Path> revisions=Files.newDirectoryStream(entry)){
+                        for(Path revision:revisions){TextImporter.check(null);File folder=revision.toFile();String name=folder.getName();
+                            if(Files.isDirectory(revision,LinkOption.NOFOLLOW_LINKS)&&(name.startsWith(".staging-")||(known&&name.matches("[0-9a-f-]{36}")&&!name.equals(current))))removeOwned(book,folder);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    private String currentRevision(File book)throws IOException{
+        // openRead restores the durable .bak before any unreferenced revision is reclaimed.
+        try(DataInputStream in=new DataInputStream(new AtomicFile(new File(book,"current.bin")).openRead())){
+            String revision=in.readUTF();if(!revision.matches("[0-9a-f-]{36}")||in.read()!=-1)throw new IOException("Invalid cover pointer");return revision;
+        }
+    }
     Record importCover(String bookId,InputStream source,String name,TextImporter.Observer observer)throws IOException{
         synchronized(LOCK){
             File book=directory(bookId),staging=new File(book,".staging-"+UUID.randomUUID()),published=null;
@@ -43,9 +68,9 @@ final class CoverStore {
         }
     }
     Record get(String bookId)throws IOException{
-        synchronized(LOCK){File book=directory(bookId);AtomicFile pointer=new AtomicFile(new File(book,"current.bin"));
-            try(DataInputStream in=new DataInputStream(pointer.openRead())){
-                String revision=in.readUTF();if(!revision.matches("[0-9a-f-]{36}")||in.read()!=-1)return null;File folder=new File(book,revision),original=new File(folder,"original.bin");
+        synchronized(LOCK){File book=directory(bookId);
+            try{
+                String revision=currentRevision(book);File folder=new File(book,revision),original=new File(folder,"original.bin");
                 if(!original.isFile()||original.length()>32L*1024*1024)return null;
                 try(DataInputStream data=new DataInputStream(new FileInputStream(new File(folder,"record.bin")))){
                     String name=data.readUTF(),mime=data.readUTF(),sha=data.readUTF();if(!sha.matches("[0-9a-f]{64}")||data.read()!=-1)return null;return new Record(bookId,revision,original,name,mime,sha);

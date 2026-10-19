@@ -19,7 +19,7 @@ abstract class NativeTestBase extends InstrumentationTestCase {
         Intent intent=new Intent(getInstrumentation().getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK);
         activity=(MainActivity)getInstrumentation().startActivitySync(intent);
         ui(()->activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON));
-        await(()->find("list:LIBRARY")!=null && listCount()>0,15000);
+        awaitLibrary();
     }
     @Override protected void tearDown() throws Exception { ui(()->activity.finish());await(()->activity.isDestroyed(),5000); getInstrumentation().waitForIdleSync(); super.tearDown(); }
     View find(String tag) { final View[] result={null}; ui(()->result[0]=activity.getWindow().getDecorView().findViewWithTag(tag)); return result[0]; }
@@ -28,8 +28,9 @@ abstract class NativeTestBase extends InstrumentationTestCase {
     String selected() {
         final String[] value={null}; ui(()->{ListView list=activity.getWindow().getDecorView().findViewWithTag("list:"+activity.screenKind());View row=list==null?null:list.getSelectedView();if(row!=null)value[0]=String.valueOf(row.getTag());});return value[0];
     }
-    void await(Condition condition,long timeout) { long end=SystemClock.uptimeMillis()+timeout;while(!condition.value()&&SystemClock.uptimeMillis()<end)SystemClock.sleep(30);assertTrue(getName()+" timed out, screen="+kind(),condition.value()); }
-    void press(int code) { getInstrumentation().sendKeyDownUpSync(code);getInstrumentation().waitForIdleSync(); if(listCount()>0)await(()->selected()!=null,3000); }
+    void await(Condition condition,long timeout) { long end=SystemClock.uptimeMillis()+timeout;while(true){if(condition.value())return;if(SystemClock.uptimeMillis()>=end){fail(getName()+" timed out, screen="+kind());return;}SystemClock.sleep(30);} }
+    void awaitLibrary(){await(()->{final boolean[] ready={false};ui(()->{ListView list=activity.getWindow().getDecorView().findViewWithTag("list:LIBRARY");ready[0]=activity.libraryReady()&&activity.hasWindowFocus()&&list!=null&&list.getCount()>0&&list.getSelectedView()!=null;});return ready[0];},15000);}
+    void press(int code) { getInstrumentation().sendKeyDownUpSync(code);getInstrumentation().waitForIdleSync(); if("LIBRARY".equals(kind()))awaitLibrary();else if(listCount()>0)await(()->selected()!=null,3000); }
     void select(String id) { for(int i=0;i<50;i++){if(("item:"+id).equals(selected()))return;press(KeyEvent.KEYCODE_DPAD_DOWN);}fail("No selectable item: "+id); }
     void fixture() throws Exception {
         File file=new File(activity.getCacheDir(),"appearance-fixture.txt");

@@ -7,6 +7,7 @@ import java.io.*;
 
 public final class LibraryAppearanceTest extends NativeTestBase {
     private View selectedRow() { final View[] row={null};ui(()->row[0]=((ListView)find("list:LIBRARY")).getSelectedView());return row[0]; }
+    private View awaitSelectedRow(){final View[] row={null};await(()->{row[0]=selectedRow();return row[0]!=null;},10000);return row[0];}
     public void testContinueBookAppearsOnce() throws Exception {
         fixture();press(KeyEvent.KEYCODE_F4);await(()->find("list:LIBRARY")!=null&&selected()!=null,10000);
         final int[] matches={0};ui(()->{ListView list=(ListView)find("list:LIBRARY");for(int i=0;i<list.getCount();i++){
@@ -14,13 +15,13 @@ public final class LibraryAppearanceTest extends NativeTestBase {
         }});assertEquals("Continue-reading book must not be duplicated",1,matches[0]);
     }
     public void testStyleChangeKeepsSelectedBook() throws Exception {
-        fixture();press(KeyEvent.KEYCODE_F4);await(()->selected()!=null,10000);
-        assertEquals("item:book",selected());String before=String.valueOf(selectedRow().getContentDescription());
+        fixture();press(KeyEvent.KEYCODE_F4);View initial=awaitSelectedRow();
+        assertEquals("item:book",initial.getTag());String before=String.valueOf(initial.getContentDescription());
         press(KeyEvent.KEYCODE_F1);select("settings");press(KeyEvent.KEYCODE_DPAD_CENTER);select("appearance");press(KeyEvent.KEYCODE_DPAD_CENTER);
         select("shelf-style");press(KeyEvent.KEYCODE_DPAD_RIGHT);
         for(int i=0;i<4&&!"LIBRARY".equals(kind());i++)press(KeyEvent.KEYCODE_F2);
-        await(()->selected()!=null,10000);assertEquals(before,String.valueOf(selectedRow().getContentDescription()));
-        assertNotNull("Cover mode must render a cover",selectedRow().findViewWithTag("book-cover"));
+        View changed=awaitSelectedRow();assertEquals(before,String.valueOf(changed.getContentDescription()));
+        assertNotNull("Cover mode must render a cover",changed.findViewWithTag("book-cover"));
     }
     public void testLongTitleAndEmptyShelfRemainUsable() throws Exception {
         ui(()->{BookRepository repo=BookRepository.obtain(activity);repo.getWritableDatabase().delete("bookmarks",null,null);repo.getWritableDatabase().delete("books",null,null);activity.perform(com.sh02l.reader.core.Action.HOME);});

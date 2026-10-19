@@ -16,7 +16,13 @@ function Invoke-ReaderAdb([string[]]$Arguments) {
 function Press-ReaderKey([int]$Code) { Invoke-ReaderAdb @('shell','input','keyevent',"$Code") | Out-Null; Start-Sleep -Milliseconds 120 }
 function Read-ReaderUi {
     Press-ReaderKey 224
-    Invoke-ReaderAdb @('shell','uiautomator','dump','--compressed',"$taskRemote/diagnostics/verification-ui.xml") | Out-Null
+    # A transport/idle failure while taking a read-only snapshot must not replay keys.
+    for ($taskAttempt = 1; $taskAttempt -le 3; $taskAttempt++) {
+        $taskDump = @(& $taskAdb -s $Serial shell uiautomator dump --compressed "$taskRemote/diagnostics/verification-ui.xml" 2>&1)
+        if ($LASTEXITCODE -eq 0) { break }
+        if ($taskAttempt -eq 3) { throw ('UI snapshot failed: ' + ($taskDump -join "`n")) }
+        Start-Sleep -Milliseconds 300
+    }
     $taskUiFile = Join-Path $taskLogs ('ui-release-' + $Label + '.xml')
     Invoke-ReaderAdb @('pull',"$taskRemote/diagnostics/verification-ui.xml",$taskUiFile) | Out-Null
     return [xml][IO.File]::ReadAllText($taskUiFile)
