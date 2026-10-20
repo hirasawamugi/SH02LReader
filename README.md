@@ -6,6 +6,8 @@
 
 M1.5 的原有主题、列表与封面功能继续保留；历史记录见 [主题与导航修订验证](docs/M1_5_THEME_NAVIGATION_VALIDATION.md)。2026-10-20 路线调整：新增 M2.5 做代码/功能优化并融合原 M4 的 EPUB 接入，再按情况进行 M3 综合验收。下一步审阅 [M2.5 设计草案与优化候选](docs/superpowers/specs/2026-10-20-m2-5-optimization-epub-design.md)，当前 APK 与既有验证结果保持为 M2；最新交接见 [HANDOFF](docs/HANDOFF.md)。
 
+M2.5 按用户要求一次整合交付，不拆内部版本；开发使用针对性检查，整合后集中构建、关键回归与升级验证，减少重复计划、审阅和测试。
+
 | 路径 | 内容 |
 | --- | --- |
 | [docs/SH02L_READER_PLAN.md](docs/SH02L_READER_PLAN.md) | 技术方案、默认按键、阶段交付与性能目标 |
