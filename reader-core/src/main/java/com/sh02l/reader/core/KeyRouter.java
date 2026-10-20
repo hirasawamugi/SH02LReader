@@ -25,23 +25,29 @@ public final class KeyRouter {
         Action action;
     }
     private final Target target;
+    private final DeviceKeyMap mapping;
     private final Map<Long, Cycle> cycles = new HashMap<>();
     private static final long REPEAT_INTERVAL_MS = 90;
 
-    public KeyRouter(Target target) { this.target = target; }
+    public KeyRouter(Target target) { this(target, DeviceProfiles.sh02l()); }
+    public KeyRouter(Target target, DeviceKeyMap mapping) { this.target = target; this.mapping = mapping; }
+    public Key normalize(KeyInput input) { return mapping.normalize(input.code, input.scan); }
+    private static long identity(KeyInput input) {
+        long physical = input.scan > 0 ? input.scan : 0x10000L + input.code;
+        return ((long) input.deviceId << 32) | (physical & 0xffffffffL);
+    }
 
     /** A key that opened an input screen still owns its remaining repeat/release events. */
     public boolean owns(KeyInput input) {
-        Key key = Key.normalize(input.code, input.scan);
-        long identity = ((long) input.deviceId << 32) | (key.ordinal() & 0xffffffffL);
+        long identity = identity(input);
         Cycle cycle = cycles.get(identity);
         return cycle != null && cycle.downTime == input.downTime;
     }
 
     public Result dispatch(KeyInput input) {
-        Key key = Key.normalize(input.code, input.scan);
+        Key key = normalize(input);
         if (key == Key.UNKNOWN) return result(key, false, Action.NONE, "unmapped");
-        long identity = ((long) input.deviceId << 32) | (key.ordinal() & 0xffffffffL);
+        long identity = identity(input);
         if (input.canceled || input.action == KeyInput.UP) {
             Cycle cycle = cycles.get(identity);
             if (cycle != null && cycle.downTime == input.downTime) cycles.remove(identity);

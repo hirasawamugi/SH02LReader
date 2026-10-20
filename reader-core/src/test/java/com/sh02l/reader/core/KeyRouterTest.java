@@ -9,7 +9,7 @@ public class KeyRouterTest {
     private long clock = 1000;
 
     private KeyInput event(Key key, int action, int repeat, long down, long when) {
-        return new KeyInput(action, key.code, key.scan, repeat, 3, down, when, false);
+        return new KeyInput(action, DeviceProfiles.sh02l().keyCode(key), DeviceProfiles.sh02l().scanCode(key), repeat, 3, down, when, false);
     }
     private void press(Key key) {
         long now = clock; clock += 40;
@@ -19,8 +19,8 @@ public class KeyRouterTest {
 
     @Test public void allMeasuredKeysNormalizeWithoutChangingValidCodes() {
         for (Key key : Key.values()) if (key != Key.UNKNOWN) {
-            assertEquals(key, Key.normalize(key.code, key.scan));
-            assertEquals(key, Key.normalize(0, key.scan));
+            assertEquals(key, Key.normalize(DeviceProfiles.sh02l().keyCode(key), DeviceProfiles.sh02l().scanCode(key)));
+            assertEquals(key, Key.normalize(0, DeviceProfiles.sh02l().scanCode(key)));
         }
         assertEquals(Key.UNKNOWN, Key.normalize(200, 753));
         assertEquals(Key.UNKNOWN, Key.normalize(0, 999));
