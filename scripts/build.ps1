@@ -20,7 +20,7 @@ try {
     $taskArguments = @('--console=plain', '--no-daemon')
     if ($WriteVerification) { $taskArguments += @('--write-verification-metadata', 'sha256') }
     switch ($Task) {
-        'verify' { $taskArguments += @(':reader-core:test', ':app:lintDebug', ':app:assembleDebug', ':app:assembleDebugAndroidTest') }
+        'verify' { $taskArguments += @(':reader-core:test', ':engine-epub:testDebugUnitTest', ':app:lintDebug', ':app:assembleDebug', ':app:assembleDebugAndroidTest') }
         'debug' { $taskArguments += ':app:assembleDebug' }
         'test-apk' { $taskArguments += ':app:assembleDebugAndroidTest' }
         'release' { $taskArguments += @(':app:lintRelease', ':app:assembleRelease') }

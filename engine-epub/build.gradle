@@ -1,0 +1,6 @@
+plugins { id 'com.android.library' }
+android { namespace 'com.sh02l.reader.epub'; compileSdk 35
+    defaultConfig { minSdk 27 }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }
+}
+dependencies { api project(':reader-android'); testImplementation 'junit:junit:4.13.2' }

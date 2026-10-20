@@ -1,19 +1,33 @@
 package com.sh02l.reader;
 
+import com.sh02l.reader.android.ReadingSurface;
 import com.sh02l.reader.core.DocumentSession;
-import com.sh02l.reader.core.text.TextImporter;
-import com.sh02l.reader.txt.TxtDocumentSession;
-import com.sh02l.reader.txt.TxtPaginator;
-import java.io.File;
+import com.sh02l.reader.core.ReadingPosition;
 
-/** Format-specific content behind the shared seek/move contract. */
+/** One owned document, renderer and last position actually displayed. */
 final class ReaderSession {
     final BookRepository.Book book;
-    final TextImporter.Result index;
-    final File normalized;
-    final DocumentSession<TxtPaginator.Page, TxtPaginator.Spec> paginator;
-    ReaderSession(BookRepository.Book book, TextImporter.Result index, File directory) {
-        this.book = book; this.index = index; normalized = new File(directory, "text.u16");
-        paginator = new TxtDocumentSession(normalized, index.length);
+    final DocumentSession document;
+    final ReadingSurface surface;
+    ReadingPosition position;
+    boolean displayed;
+
+    ReaderSession(
+            BookRepository.Book book,
+            DocumentSession document,
+            ReadingSurface surface,
+            ReadingPosition position) {
+        this.book = book;
+        this.document = document;
+        this.surface = surface;
+        this.position = position;
+    }
+
+    void close() {
+        android.view.View view = surface.view();
+        if (view.getParent() instanceof android.view.ViewGroup)
+            ((android.view.ViewGroup) view.getParent()).removeView(view);
+        surface.close();
+        document.close();
     }
 }

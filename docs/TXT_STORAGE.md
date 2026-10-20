@@ -1,6 +1,10 @@
 # TXT 引擎与数据约定
 
-M1 的运行时只依赖 Android 框架。`reader-core` 处理按键周期和流式文本；`engine-txt` 处理 Android 排版；`app` 负责书库、界面和后台任务。未来 EPUB 增加独立引擎与自己的定位格式，不把 EPUB 位置解释为 TXT 字符偏移。
+运行时只依赖 Android 框架。M2.5 新增 `reader-android` 阅读界面/样式契约，TXT 与独立 `engine-epub` 实现相同的文档契约。`reader-core` 处理按键周期、流式文本和版本化定位；app 组合引擎、书库与界面，不把 EPUB 位置解释为 TXT 字符偏移。职责入口见 [代码结构](CODE_STRUCTURE.md)。
+
+M2.5 数据库 v3 增加 format、locator_payload 和 progression，并为书签存储独立格式/版本/定位。v1/v2 的 TXT ID、offset 和书签标签原样迁入，TXT v1 仍以 UTF-16 单元定位。旧 offset 对 EPUB 只供兼容书架百分比显示；恢复、目录、搜索与书签使用 `epub-v1` 的资源路径、DOM 文本偏移和可选片段。显示百分比不能替代内容锚点。
+
+EPUB 原件仍为 `original.bin`，不生成 `text.u16` / `index.bin`；系统 WebView 的页面排版在内存中进行，可回收。归档不解压到磁盘，不允许资源越过该书的归档边界。书籍展开总大小/原件各 256 MiB、条目 20,000、单篇正文 4 MiB、单资源 8 MiB；外部实体、书内脚本和外部资源关闭。没有清理 EPUB 原件作为“可重建缓存”的入口。
 
 ## 导入与文件布局
 

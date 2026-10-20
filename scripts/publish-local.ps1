@@ -1,4 +1,4 @@
-param([string]$Version = '0.3.1-m2')
+param([string]$Version = '0.4.0-m2.5')
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z0-9.]+)?$') { throw 'Invalid version.' }
 $taskProjectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
@@ -22,7 +22,7 @@ $taskVcsMatch = [regex]::Match($taskVcsText,'revision: "([0-9a-f]{40})"')
 if (-not $taskVcsMatch.Success) { throw 'APK source revision is invalid.' }
 $taskBuildCommit = $taskVcsMatch.Groups[1].Value
 # Documentation and verification scripts may follow a tested APK; compiled sources must match.
-& git -C $taskProjectRoot diff --quiet $taskBuildCommit HEAD -- app reader-core engine-txt build.gradle settings.gradle gradle.properties gradle
+& git -C $taskProjectRoot diff --quiet $taskBuildCommit HEAD -- app reader-core reader-android engine-txt engine-epub build.gradle settings.gradle gradle.properties gradle
 if ($LASTEXITCODE -ne 0) { throw 'Compiled source differs from APK; rebuild release.' }
 $taskApkName = 'SH02LReader-v' + $Version + '.apk'
 $taskApk = Join-Path $taskOutputRoot $taskApkName
@@ -47,7 +47,7 @@ Copy-Item -LiteralPath $taskSourceApk -Destination $taskApk -Force
 $taskSignature | Set-Content -LiteralPath (Join-Path $taskOutputRoot 'signature.txt') -Encoding UTF8
 $taskBadging | Set-Content -LiteralPath (Join-Path $taskOutputRoot 'apk-info.txt') -Encoding UTF8
 ($taskHash + '  ' + $taskApkName) | Set-Content -LiteralPath (Join-Path $taskOutputRoot 'SHA256SUMS.txt') -Encoding ASCII
-$taskDocumentPrefix = if ($Version -match '-m2') { 'M2' } else { 'M1_5' }
+$taskDocumentPrefix = if ($Version -match '-m2\.5$') { 'M2_5' } elseif ($Version -match '-m2$') { 'M2' } else { 'M1_5' }
 Copy-Item -LiteralPath (Join-Path $taskProjectRoot ('docs\' + $taskDocumentPrefix + '_VALIDATION.md')) -Destination (Join-Path $taskOutputRoot 'VALIDATION.md') -Force
 Copy-Item -LiteralPath (Join-Path $taskProjectRoot ('docs\' + $taskDocumentPrefix + '_RELEASE_NOTES.md')) -Destination (Join-Path $taskOutputRoot 'CHANGELOG.md') -Force
 foreach ($taskDocument in @(($taskDocumentPrefix + '_VALIDATION.md'),($taskDocumentPrefix + '_REVIEW.md'),'MATVT_DIAGNOSIS.md')) {
@@ -56,7 +56,7 @@ foreach ($taskDocument in @(($taskDocumentPrefix + '_VALIDATION.md'),($taskDocum
 }
 Copy-Item -LiteralPath (Join-Path $taskProjectRoot 'docs\TXT_STORAGE.md') -Destination (Join-Path $taskOutputRoot 'TXT_STORAGE.md') -Force
 New-Item -ItemType Directory -Path (Join-Path $taskOutputRoot 'images') -Force | Out-Null
-$taskImageFolder = if ($taskDocumentPrefix -eq 'M2') { 'm2' } else { 'm1-5' }
+$taskImageFolder = if ($taskDocumentPrefix -eq 'M2_5') { 'm2-5' } elseif ($taskDocumentPrefix -eq 'M2') { 'm2' } else { 'm1-5' }
 foreach ($taskImage in Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot ('docs\images\' + $taskImageFolder)) -Filter '*.png' -File -ErrorAction SilentlyContinue) {
     Copy-Item -LiteralPath $taskImage.FullName -Destination (Join-Path $taskOutputRoot ('images\' + $taskImage.Name)) -Force
 }
@@ -64,7 +64,7 @@ $taskRecord = [ordered]@{
     version=$Version; applicationId='com.sh02l.reader'; minSdk=27; targetSdk=35
     apk=$taskApkName; bytes=(Get-Item -LiteralPath $taskApk).Length; sha256=$taskHash
     sourceCommit=$taskBuildCommit; publicationCommit=$taskCommit; sourceClean=($taskSourceStatus.Count -eq 0)
-    stage=$(if ($taskDocumentPrefix -eq 'M2') { 'M2 daily reading and storage management' } else { 'M1.5 themes, keypad UI and safe import' }); toolchain='AGP 8.6.1 / Gradle 8.7 / JDK 17'
+    stage=$(if ($taskDocumentPrefix -eq 'M2_5') { 'M2.5 shared architecture, keypad menus and EPUB' } elseif ($taskDocumentPrefix -eq 'M2') { 'M2 daily reading and storage management' } else { 'M1.5 themes, keypad UI and safe import' }); toolchain='AGP 8.6.1 / Gradle 8.7 / JDK 17'
 }
 $taskRecord | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $taskOutputRoot 'build-info.json') -Encoding UTF8
 $taskRecord | ConvertTo-Json

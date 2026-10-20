@@ -14,8 +14,8 @@ android {
         applicationId 'com.sh02l.reader'
         minSdk 27
         targetSdk 35
-        versionCode 6
-        versionName '0.3.1-m2'
+        versionCode 7
+        versionName '0.4.0-m2.5'
         testInstrumentationRunner 'android.test.InstrumentationTestRunner'
     }
     useLibrary 'android.test.runner'
@@ -53,7 +53,7 @@ android {
     lint { abortOnError true }
 }
 
-dependencies { implementation project(':engine-txt') }
+dependencies { implementation project(':engine-txt'); implementation project(':engine-epub') }
 
 // AGP 8.6.1 assumes .git is a directory and misses linked worktrees/packed refs.
 // Resolve with Git itself, and make a new checkout revision invalidate the build stamp.

@@ -4,7 +4,8 @@ import java.util.function.IntPredicate;
 
 /** Shared circular selection policy, independent of Android scroll state. */
 public final class ListSelection {
-    private ListSelection() { }
+    private ListSelection() {}
+
     public static int move(int selected, int delta, int count, IntPredicate selectable) {
         if (count <= 0) return -1;
         int direction = delta < 0 ? -1 : 1;

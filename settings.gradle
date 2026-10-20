@@ -6,4 +6,4 @@ dependencyResolutionManagement {
     repositories { google(); mavenCentral() }
 }
 rootProject.name = 'SH02LReader'
-include ':app', ':reader-core', ':engine-txt'
+include ':app', ':reader-core', ':reader-android', ':engine-txt', ':engine-epub'
