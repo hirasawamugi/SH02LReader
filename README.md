@@ -4,7 +4,7 @@
 
 当前候选为 M2（`0.3.1-m2`）：在 M1.5 基础上增加正文搜索、百分比跳转、编码纠正、行距/边距/字体、书籍与书签管理、封面移除、分页书架和存储管理。可确认删除私有图书、选择清理 import 和回收可重建缓存，保留外部来源文件；数据库覆盖升级保留用户书库。新增输入使用系统原生控件，F3 确认、F2/F4 取消。功能与限制见 [M2 变更说明](docs/M2_RELEASE_NOTES.md)，本轮实际验证见 [M2 验证](docs/M2_VALIDATION.md)。
 
-M1.5 的原有主题、列表与封面功能继续保留；历史记录见 [主题与导航修订验证](docs/M1_5_THEME_NAVIGATION_VALIDATION.md)。长期试读、M3 与 EPUB 仍按 [HANDOFF](docs/HANDOFF.md) 继续。
+M1.5 的原有主题、列表与封面功能继续保留；历史记录见 [主题与导航修订验证](docs/M1_5_THEME_NAVIGATION_VALIDATION.md)。2026-10-20 路线调整：新增 M2.5 做代码/功能优化并融合原 M4 的 EPUB 接入，再按情况进行 M3 综合验收。下一步审阅 [M2.5 设计草案与优化候选](docs/superpowers/specs/2026-10-20-m2-5-optimization-epub-design.md)，当前 APK 与既有验证结果保持为 M2；最新交接见 [HANDOFF](docs/HANDOFF.md)。
 
 | 路径 | 内容 |
 | --- | --- |
