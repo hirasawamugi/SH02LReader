@@ -50,15 +50,16 @@ $taskBadging | Set-Content -LiteralPath (Join-Path $taskOutputRoot 'apk-info.txt
 $taskDocumentPrefix = if ($Version -match '-m2\.5$') { 'M2_5' } elseif ($Version -match '-m2$') { 'M2' } else { 'M1_5' }
 Copy-Item -LiteralPath (Join-Path $taskProjectRoot ('docs\' + $taskDocumentPrefix + '_VALIDATION.md')) -Destination (Join-Path $taskOutputRoot 'VALIDATION.md') -Force
 Copy-Item -LiteralPath (Join-Path $taskProjectRoot ('docs\' + $taskDocumentPrefix + '_RELEASE_NOTES.md')) -Destination (Join-Path $taskOutputRoot 'CHANGELOG.md') -Force
-foreach ($taskDocument in @(($taskDocumentPrefix + '_VALIDATION.md'),($taskDocumentPrefix + '_REVIEW.md'),'MATVT_DIAGNOSIS.md')) {
+foreach ($taskDocument in @(($taskDocumentPrefix + '_VALIDATION.md'),($taskDocumentPrefix + '_RELEASE_NOTES.md'),($taskDocumentPrefix + '_REVIEW.md'),'CODE_STRUCTURE.md','MATVT_DIAGNOSIS.md')) {
     $taskDocumentPath = Join-Path $taskProjectRoot ('docs\' + $taskDocument)
     if (Test-Path -LiteralPath $taskDocumentPath) { Copy-Item -LiteralPath $taskDocumentPath -Destination (Join-Path $taskOutputRoot $taskDocument) -Force }
 }
 Copy-Item -LiteralPath (Join-Path $taskProjectRoot 'docs\TXT_STORAGE.md') -Destination (Join-Path $taskOutputRoot 'TXT_STORAGE.md') -Force
-New-Item -ItemType Directory -Path (Join-Path $taskOutputRoot 'images') -Force | Out-Null
 $taskImageFolder = if ($taskDocumentPrefix -eq 'M2_5') { 'm2-5' } elseif ($taskDocumentPrefix -eq 'M2') { 'm2' } else { 'm1-5' }
+$taskImageOutput = Join-Path $taskOutputRoot ('images\' + $taskImageFolder)
+New-Item -ItemType Directory -Path $taskImageOutput -Force | Out-Null
 foreach ($taskImage in Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot ('docs\images\' + $taskImageFolder)) -Filter '*.png' -File -ErrorAction SilentlyContinue) {
-    Copy-Item -LiteralPath $taskImage.FullName -Destination (Join-Path $taskOutputRoot ('images\' + $taskImage.Name)) -Force
+    Copy-Item -LiteralPath $taskImage.FullName -Destination (Join-Path $taskImageOutput $taskImage.Name) -Force
 }
 $taskRecord = [ordered]@{
     version=$Version; applicationId='com.sh02l.reader'; minSdk=27; targetSdk=35
