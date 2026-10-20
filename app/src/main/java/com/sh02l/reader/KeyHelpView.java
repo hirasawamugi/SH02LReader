@@ -6,6 +6,7 @@ import android.text.*;
 import android.view.View;
 
 import com.sh02l.reader.core.DeviceKeyMap;
+import com.sh02l.reader.core.Key;
 import com.sh02l.reader.core.Palette;
 
 import java.util.*;
@@ -88,10 +89,10 @@ final class KeyHelpView extends View {
         notes =
                 text(
                         "数字快捷键仅在正文生效，灰字为当前未启用。\n"
-                            + "列表首尾循环；正文翻页不循环。\n"
-                            + "输入时 F3 确认，F4 取消。\n"
-                            + "拨号、清除、挂断与 I / II / III 保留系统含义。\n"
-                            + "↑↓ 滚动说明，0 或 F4 关闭。"
+                                + "列表首尾循环；正文翻页不循环。\n"
+                                + "输入时 F3 确认，F4 取消。\n"
+                                + "拨号、清除、挂断与 I / II / III 保留系统含义。\n"
+                                + "↑↓ 滚动说明，0 或 F4 关闭。"
                                 + (profile != null && !profile.id().startsWith("sh02l")
                                         ? "\n当前使用通用按键映射；示意图供参考。"
                                         : ""),
@@ -138,7 +139,7 @@ final class KeyHelpView extends View {
             paint.setColor(palette.foreground);
             paint.setTextSize((numeric ? 16 : 12) * scaled);
             String name = key.id;
-            if (function) name = key.id;
+            if (function) name = profile == null ? key.id : profile.label(Key.valueOf(key.id));
             else if (key.id.equals("CALL")) name = "拨号";
             else if (key.id.equals("CLEAR")) name = "清除";
             else if (key.id.equals("END")) name = "挂断";

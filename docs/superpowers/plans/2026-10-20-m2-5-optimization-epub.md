@@ -46,9 +46,9 @@
 
 **Interfaces:** `DeviceKeyMap.normalize(int keyCode, int scanCode): Key`、`label(Key): String`、`id(): String`；`DeviceProfiles.select(String manufacturer, String model, String overrideId): DeviceKeyMap`；`KeyRouter(Target, DeviceKeyMap)` 保留整次物理按键归属；`ListSelection.move(int selected, int delta, int count, IntPredicate selectable): int` 无可选项时返回 -1。`UiAction` 的稳定 ID、标题、重复策略供后续菜单、动作解析和提示共用。
 
-- [ ] 先补针对性失败用例：替代键码归一化到同一逻辑键、UNKNOWN 的配置内 scanCode 回退、不同物理键不共用周期；列表 `0↑→末项`、`末项↓→0`、跳过不可选项及空/单项行为。只运行这些 JVM 用例确认缺口。
-- [ ] 将 SH-02L 硬件常量移入配置，Key 保留逻辑身份；输入分派与 KeyRouter 使用同一映射实例。为未来选择/覆盖设置提供版本化存取边界，迁移生产共用的列表/动作规则，清理原型重复实现并保留仍需的历史设置读取。
-- [ ] 运行关联 JVM 用例确认预期，记录结果；不在此工作项另做完整手机回归或候选发布。
+- [x] 先补针对性失败用例：替代键码归一化到同一逻辑键、UNKNOWN 的配置内 scanCode 回退、不同物理键不共用周期；列表 `0↑→末项`、`末项↓→0`、跳过不可选项及空/单项行为。只运行这些 JVM 用例确认缺口。
+- [x] 将 SH-02L 硬件常量移入配置，Key 保留逻辑身份；输入分派与 KeyRouter 使用同一映射实例。为未来选择/覆盖设置提供版本化存取边界，迁移生产共用的列表/动作规则，清理原型重复实现并保留仍需的历史设置读取。
+- [x] 运行关联 JVM 用例确认预期，记录结果；不在此工作项另做完整手机回归或候选发布。
 
 ## 工作项 2：书库、阅读会话与协调职责
 
@@ -56,10 +56,10 @@
 
 **Interfaces:** `DocumentLocation(String format, int version, String payload)` 为不可变格式定位，TXT payload 保留原 UTF-16 offset；`DocumentSession` 提供 `format(): String`、`capabilities(): Set<DocumentCapability>`、`contents(): List<ContentEntry>`、`search(String, DocumentLocation, int, BooleanSupplier): SearchBatch`、`locationAt(double): DocumentLocation`、`progressionAt(DocumentLocation): double` 与 `close(): void`。`ContentEntry` 含标题及格式定位，`SearchBatch` 含命中定位/摘要与续查位置。公共 Android 层的 `ReadingStyle` 为排版/配色/字体参数的不可变快照，由 app 的 ReadingSettings 转换；`ReadingSurface` 提供 `view(): View`、`open(DocumentSession, DocumentLocation, ReadingStyle, Listener): void`、`move(int): void`、`seek(DocumentLocation): void`、`apply(ReadingStyle): void`、`close(): void`。其嵌套 Listener 用 `onReady()`、`onLocation(DocumentLocation, double)`、`onError(Exception)` 上报就绪/实际上屏定位/错误，控制器按会话代次校验。
 
-- [ ] 先固定旧 v2 数据库与失败恢复的代表性用例；明确原 ID、原件哈希、书签标签及 offset 不变，删除后的旧写入继续被拒绝。将格式迁移检查归入 `M25DataMigrationTest`，复用既有删除/重试夹具。
-- [ ] 拆清数据库、文件事务、格式导入和阅读协调；MainActivity 负责 Android 生命周期、窗口与组件装配，既有 TXT 也迁入新结构。SQLite v2→v3 显式增加格式与定位存储，保留旧 TXT 值，失败不清库。
-- [ ] EPUB 只做一次必要的候选筛选与小样：按 API 27、32 位 ARM、WebView 67、当前工具链、定位/搜索与许可筛选；选出一个后端并固定正式版本/提交/依赖校验。只验证显示、按键移动、重排与恢复所需能力，结果记入最终验证文档的选型段，不另出版本。选型只校准引擎专有接口，不阻塞公共职责整理；失败有明确证据再换候选。
-- [ ] 用既有 TXT 测试与新增迁移用例验证受影响行为；本项不独立打正式包或整轮验收。
+- [x] 先固定旧 v2 数据库与失败恢复的代表性用例；明确原 ID、原件哈希、书签标签及 offset 不变，删除后的旧写入继续被拒绝。将格式迁移检查归入 `M25DataMigrationTest`，复用既有删除/重试夹具。
+- [x] 拆清数据库、文件事务、格式导入和阅读协调；MainActivity 负责 Android 生命周期、窗口与组件装配，既有 TXT 也迁入新结构。SQLite v2→v3 显式增加格式与定位存储，保留旧 TXT 值，失败不清库。
+- [x] EPUB 只做一次必要的候选筛选与小样：按 API 27、32 位 ARM、WebView 67、当前工具链、定位/搜索与许可筛选；选出一个后端并固定正式版本/提交/依赖校验。只验证显示、按键移动、重排与恢复所需能力，结果记入最终验证文档的选型段，不另出版本。选型只校准引擎专有接口，不阻塞公共职责整理；失败有明确证据再换候选。
+- [x] 用既有 TXT 测试与新增迁移用例验证受影响行为；本项不独立打正式包或整轮验收。
 
 ## 工作项 3：菜单、循环列表、提示与帮助
 
@@ -67,9 +67,9 @@
 
 **Interfaces:** `InputContext` 携带当前页面/菜单类别、所选书籍 ID、是否阅读及格式能力；`MenuCatalog.items(InputContext): List<MenuCatalog.Item>` 的嵌套 Item 引用工作项 1 的 UiAction，固定动作 ID、顺序与可用性。`InputBindings.resolve(InputContext, Key): Action` 供 KeyRouter 使用，`hints(InputContext, DeviceKeyMap): Map<Key, String>` 从同一动作定义生成提示；菜单执行交给工作项 2 的协调入口，列表移动调用工作项 1 的 ListSelection。
 
-- [ ] 先补代表性失败检查：书籍/通用菜单互不混入、无选书行为、首项关闭和默认常用项、F3/F4 输入归属、首尾循环后确认对象正确；保留打开/关闭所用同次按键剩余事件的检查。
-- [ ] 按设计第 4 节实现 F1–F4 和菜单顺序、替换同层菜单、当前批次循环与返回位置恢复；异步封面项保持稳定动作 ID，危险操作保留确认。
-- [ ] 同步更新全部页面、按钮、任务提示及帮助。两行四键底栏与帮助排版复用机型标签；记录阅读区域变化时锚点保持。重点检查实际字体比例下的键位对齐、层级、留白与换行，整合时统一截图验证。
+- [x] 先补代表性失败检查：书籍/通用菜单互不混入、无选书行为、首项关闭和默认常用项、F3/F4 输入归属、首尾循环后确认对象正确；保留打开/关闭所用同次按键剩余事件的检查。
+- [x] 按设计第 4 节实现 F1–F4 和菜单顺序、替换同层菜单、当前批次循环与返回位置恢复；异步封面项保持稳定动作 ID，危险操作保留确认。
+- [x] 同步更新全部页面、按钮、任务提示及帮助。两行四键底栏与帮助排版复用机型标签；记录阅读区域变化时锚点保持。重点检查实际字体比例下的键位对齐、层级、留白与换行，整合时统一截图验证。
 
 ## 工作项 4：EPUB 完整接入
 
@@ -77,9 +77,9 @@
 
 **Interfaces:** EPUB 实现工作项 2 的 DocumentSession/ReadingSurface，通用页面只消费格式能力与 DocumentLocation；资源 ID/内容锚点由适配器编码为带版本 payload。导入和导出保持原始 EPUB 字节；清理仅操作经该格式确认可重建的缓存。
 
-- [ ] 用受控 EPUB 固定目录/章节、图文、内链返回、搜索结果跳转、重排和重开的定位行为；另外检查非法归档路径、外部资源访问和过时会话回调，不只断言文件能打开。
-- [ ] 完成无 DRM 可重排 EPUB 2/3 的约定阅读流程，接入同一按键、主题、排版、书签、进度及存储入口；EPUB 不显示 TXT 编码纠正。引入上游代码或库时补齐来源与许可记录。
-- [ ] 在已连接 SH-02L 上把 EPUB 与工作项 3 的交互检查合并到最终代表性回归；记录包体和内存样本，不增加本轮 M3 压力项目。
+- [x] 用受控 EPUB 固定目录/章节、图文、内链返回、搜索结果跳转、重排和重开的定位行为；另外检查非法归档路径、外部资源访问和过时会话回调，不只断言文件能打开。
+- [x] 完成无 DRM 可重排 EPUB 2/3 的约定阅读流程，接入同一按键、主题、排版、书签、进度及存储入口；EPUB 不显示 TXT 编码纠正。引入上游代码或库时补齐来源与许可记录。
+- [x] 在已连接 SH-02L 上把 EPUB 与工作项 3 的交互检查合并到最终代表性回归；记录包体和内存样本，不增加本轮 M3 压力项目。
 
 ## 工作项 5：集中验证、整体审查与一次交付
 
@@ -96,5 +96,5 @@
 - [x] 设计范围已通过本轮用户反馈确定，结构优先、一次交付、精简验证的约定已纳入。
 - [x] USB、设备环境、已安装 APK 身份与外部 Books 来源基线已记录。
 - [x] 实施任务表已整理并自行检查接口依赖及发布脚本风险。
-- [ ] 整体审阅此任务表后进入源码实施；默认由当前会话直接连续执行，不另开逐任务计划或确认。
-- 本次准备未运行重复 M2 回归、未修改产品源码、未安装新 APK；目前不宣称 M2.5 功能或 EPUB 验证通过。
+- [x] 任务表自检后已在当前会话连续实施，未新增逐任务确认或候选版本。
+- 实施进度：工作项 1–4 完成，65 项 JVM、集中 29 项真机回归及修复关联复核通过，一次整体审查的八项发现关闭。正式签名升级与产物状态见 M2_5_VALIDATION。

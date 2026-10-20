@@ -1,0 +1,7 @@
+{
+  "source": "https://html.spec.whatwg.org/entities.json",
+  "license": "https://whatwg.org/ipr-policy",
+  "transformation": "Semicolon forms to hexadecimal codepoint properties",
+  "sourceSha256": "d741d877ac77c4194c4ad526b5b4a19aef8dfe411ab840a466891cdbb9f362e6",
+  "tableSha256": "831d1c37e49c2e6002b1f7079b1012823a7baa9bcc6d99c1ad64f16e3b6dc337"
+}

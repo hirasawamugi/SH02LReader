@@ -43,59 +43,74 @@ final class DocumentImportRegistry {
     static Prepared prepare(
             InputStream source, String name, File staging, TextImporter.Observer observer)
             throws IOException {
-        BufferedInputStream input = new BufferedInputStream(source);
-        input.mark(4);
-        byte[] magic = new byte[4];
-        int count = input.read(magic);
-        input.reset();
-        if (count != 4 || magic[0] != 'P' || magic[1] != 'K' || magic[2] != 3 || magic[3] != 4) {
-            TextImporter.Result text = TextImporter.prepare(input, staging, null, observer);
-            TxtCacheFingerprint.write(staging, observer);
-            return new Prepared(
-                    text.id,
-                    title(name),
-                    "txt",
-                    text.charset,
-                    text.length,
-                    text.sourceBytes,
-                    DocumentLocation.txt(0),
-                    null);
-        }
-        if (!staging.mkdirs()) throw new IOException("Cannot create EPUB staging");
-        File original = new File(staging, "original.bin");
-        long total = 0;
-        try (InputStream in = input;
-                FileOutputStream out = new FileOutputStream(original)) {
-            byte[] bytes = new byte[16384];
-            int n;
-            while ((n = in.read(bytes)) != -1) {
+        try (BufferedInputStream input = new BufferedInputStream(source)) {
+            input.mark(4);
+            byte[] magic = new byte[4];
+            int count = 0;
+            while (count < magic.length) {
                 TextImporter.check(observer);
-                total += n;
-                if (total > 256L * 1024 * 1024)
-                    throw new IOException("EPUB source exceeds 256 MiB");
-                if (observer != null) observer.beforeWrite(n);
-                out.write(bytes, 0, n);
-                if (observer != null) observer.progress("保存 EPUB 原件", total);
+                int read = input.read(magic, count, magic.length - count);
+                if (read < 0) break;
+                if (read == 0) {
+                    int one = input.read();
+                    if (one < 0) break;
+                    magic[count++] = (byte) one;
+                } else count += read;
             }
-            out.getFD().sync();
-        }
-        String id = CoverStore.hash(original, observer);
-        try (EpubArchive archive = new EpubArchive(original)) {
-            byte[] cover = null;
-            if (archive.cover != null)
-                try {
-                    cover = archive.read(archive.cover, 4 * 1024 * 1024);
-                } catch (IOException ignored) {
+            input.reset();
+            if (count != 4
+                    || magic[0] != 'P'
+                    || magic[1] != 'K'
+                    || magic[2] != 3
+                    || magic[3] != 4) {
+                TextImporter.Result text = TextImporter.prepare(input, staging, null, observer);
+                TxtCacheFingerprint.write(staging, observer);
+                return new Prepared(
+                        text.id,
+                        title(name),
+                        "txt",
+                        text.charset,
+                        text.length,
+                        text.sourceBytes,
+                        DocumentLocation.txt(0),
+                        null);
+            }
+            if (!staging.mkdirs()) throw new IOException("Cannot create EPUB staging");
+            File original = new File(staging, "original.bin");
+            long total = 0;
+            try (InputStream in = input;
+                    FileOutputStream out = new FileOutputStream(original)) {
+                byte[] bytes = new byte[16384];
+                int n;
+                while ((n = in.read(bytes)) != -1) {
+                    TextImporter.check(observer);
+                    total += n;
+                    if (total > 256L * 1024 * 1024)
+                        throw new IOException("EPUB source exceeds 256 MiB");
+                    if (observer != null) observer.beforeWrite(n);
+                    out.write(bytes, 0, n);
+                    if (observer != null) observer.progress("保存 EPUB 原件", total);
                 }
-            return new Prepared(
-                    id,
-                    archive.title,
-                    "epub",
-                    "EPUB",
-                    1000000,
-                    total,
-                    EpubDocumentSession.location(archive.spine.get(0), 0, ""),
-                    cover);
+                out.getFD().sync();
+            }
+            String id = CoverStore.hash(original, observer);
+            try (EpubArchive archive = new EpubArchive(original)) {
+                byte[] cover = null;
+                if (archive.cover != null)
+                    try {
+                        cover = archive.read(archive.cover, 4 * 1024 * 1024);
+                    } catch (IOException ignored) {
+                    }
+                return new Prepared(
+                        id,
+                        archive.title,
+                        "epub",
+                        "EPUB",
+                        1000000,
+                        total,
+                        EpubDocumentSession.location(archive.spine.get(0), 0, ""),
+                        cover);
+            }
         }
     }
 

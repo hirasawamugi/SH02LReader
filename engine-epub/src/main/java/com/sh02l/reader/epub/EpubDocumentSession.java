@@ -9,6 +9,13 @@ import java.util.function.BooleanSupplier;
 /** EPUB positions retain resource identity and content offset across repagination. */
 public final class EpubDocumentSession implements DocumentSession {
     final EpubArchive archive;
+    private final Map<String, EpubArchive.TextIndex> indexes =
+            new LinkedHashMap<String, EpubArchive.TextIndex>(4, .75f, true) {
+                protected boolean removeEldestEntry(
+                        Map.Entry<String, EpubArchive.TextIndex> entry) {
+                    return size() > 3;
+                }
+            };
 
     public EpubDocumentSession(File file) throws IOException {
         archive = new EpubArchive(file);
@@ -69,8 +76,41 @@ public final class EpubDocumentSession implements DocumentSession {
     public double progressionAt(DocumentLocation location) {
         String[] parts = parts(location);
         int index = Math.max(0, archive.spine.indexOf(parts[0]));
-        double fraction = parts[2].startsWith("@") ? Double.parseDouble(parts[2].substring(1)) : 0;
+        EpubArchive.TextIndex text = index(parts[0]);
+        double fraction =
+                parts[2].startsWith("@")
+                        ? Double.parseDouble(parts[2].substring(1))
+                        : text == null || text.length == 0
+                                ? 0
+                                : (double) offset(parts) / text.length;
         return Math.max(0, Math.min(1, (index + fraction) / archive.spine.size()));
+    }
+
+    void prepareContent(String path, byte[] bytes) throws IOException {
+        EpubArchive.TextIndex parsed = archive.index(bytes);
+        synchronized (indexes) {
+            indexes.put(path, parsed);
+        }
+    }
+
+    private EpubArchive.TextIndex index(String path) {
+        synchronized (indexes) {
+            return indexes.get(path);
+        }
+    }
+
+    private int offset(String[] parts) {
+        EpubArchive.TextIndex text = index(parts[0]);
+        if (text != null && !parts[2].isEmpty() && !parts[2].startsWith("@"))
+            return text.anchors.getOrDefault(parts[2], Integer.parseInt(parts[1]));
+        return Integer.parseInt(parts[1]);
+    }
+
+    @Override
+    public int compare(DocumentLocation first, DocumentLocation second) {
+        String[] a = parts(first), b = parts(second);
+        int chapter = Integer.compare(archive.spine.indexOf(a[0]), archive.spine.indexOf(b[0]));
+        return chapter != 0 ? chapter : Integer.compare(offset(a), offset(b));
     }
 
     public SearchBatch search(

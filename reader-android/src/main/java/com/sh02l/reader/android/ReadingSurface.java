@@ -11,6 +11,8 @@ public interface ReadingSurface extends AutoCloseable {
         void onLocation(DocumentLocation location, double progression);
 
         void onError(Exception error);
+
+        default void onNavigate(DocumentLocation location) {}
     }
 
     View view();

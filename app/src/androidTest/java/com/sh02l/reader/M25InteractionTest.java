@@ -68,4 +68,36 @@ public final class M25InteractionTest extends NativeTestBase {
         assertEquals("READER", kind());
         assertTrue(offset() > 0);
     }
+
+    public void testFooterRefreshesAfterChangingSettingsUnderOverlay() throws Exception {
+        fixture();
+        ui(
+                () -> {
+                    activity.perform(com.sh02l.reader.core.Action.SETTINGS);
+                    activity.readingSettings().horizontal = 24;
+                    activity.layoutChanged();
+                });
+        assertEquals("SETTINGS", kind());
+        press(KeyEvent.KEYCODE_F4);
+        await(this::ready, 10000);
+        ui(
+                () -> {
+                    android.widget.LinearLayout footer =
+                            (android.widget.LinearLayout) find("soft-keys");
+                    assertEquals(
+                            "F1 阅读菜单",
+                            ((TextView)
+                                            ((android.widget.LinearLayout) footer.getChildAt(0))
+                                                    .getChildAt(0))
+                                    .getText()
+                                    .toString());
+                    assertEquals(
+                            "F3 通用菜单",
+                            ((TextView)
+                                            ((android.widget.LinearLayout) footer.getChildAt(1))
+                                                    .getChildAt(0))
+                                    .getText()
+                                    .toString());
+                });
+    }
 }

@@ -57,7 +57,7 @@ public class M25DataMigrationTest extends InstrumentationTestCase {
                     + " INTEGER NOT NULL DEFAULT 0)");
         old.execSQL(
                 "CREATE TABLE bookmarks(book_id TEXT NOT NULL,offset INTEGER NOT NULL,label TEXT"
-                    + " NOT NULL,PRIMARY KEY(book_id,offset))");
+                        + " NOT NULL,PRIMARY KEY(book_id,offset))");
         old.execSQL(
                 "INSERT INTO books VALUES(?, 'kept','UTF-8',1000,3000,42,1,123)",
                 new Object[] {id});
@@ -76,6 +76,54 @@ public class M25DataMigrationTest extends InstrumentationTestCase {
             assertEquals(id, repository.get(id).id);
         } finally {
             repository.close();
+        }
+    }
+
+    public void testShortProviderReadsStillImportEpubAndAlwaysClose() throws Exception {
+        LibraryManagementTest.TestContext isolated =
+                new LibraryManagementTest.TestContext(getInstrumentation().getTargetContext());
+        BookRepository repository = LibraryManagementTest.open(isolated);
+        final boolean[] closed = {false};
+        try {
+            File book = EpubFixtures.create(isolated.root);
+            java.io.InputStream shortReads =
+                    new java.io.FilterInputStream(new java.io.FileInputStream(book)) {
+                        public int available() {
+                            return 0;
+                        }
+
+                        public int read(byte[] bytes, int off, int count)
+                                throws java.io.IOException {
+                            return super.read(bytes, off, Math.min(1, count));
+                        }
+
+                        public void close() throws java.io.IOException {
+                            closed[0] = true;
+                            super.close();
+                        }
+                    };
+            assertEquals("epub", repository.importBook(shortReads, "partial.epub", null).format);
+            assertTrue(closed[0]);
+            closed[0] = false;
+            java.io.InputStream failed =
+                    new java.io.InputStream() {
+                        public int read() throws java.io.IOException {
+                            throw new java.io.IOException("provider read failed");
+                        }
+
+                        public void close() {
+                            closed[0] = true;
+                        }
+                    };
+            try {
+                repository.importBook(failed, "failed.epub", null);
+                fail("Read failure ignored");
+            } catch (java.io.IOException expected) {
+            }
+            assertTrue(closed[0]);
+        } finally {
+            repository.close();
+            LibraryManagementTest.remove(isolated.root);
         }
     }
 }

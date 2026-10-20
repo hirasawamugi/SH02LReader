@@ -39,6 +39,7 @@ public final class DeviceProfiles {
     private static DeviceKeyMap create(boolean measured) {
         DeviceKeyMap.Builder builder =
                 DeviceKeyMap.builder(measured ? "sh02l-v1" : "android-standard-v1");
+        if (measured) builder.helpLayout("sh02l");
         for (int i = 0; i < KEYS.length; i++)
             builder.bind(KEYS[i], CODES[i], measured ? SCANS[i] : 0);
         return builder.build();

@@ -5,7 +5,6 @@ import org.xml.sax.InputSource;
 
 import java.io.*;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.zip.*;
 
@@ -36,6 +35,7 @@ public final class EpubArchive implements AutoCloseable {
 
     private final ZipFile zip;
     private final Map<String, ZipEntry> entries = new HashMap<>();
+    private final Set<String> obfuscatedFonts = new HashSet<>();
     public final List<String> spine;
     public final List<Part> navigation;
     public final String title, cover;
@@ -62,8 +62,6 @@ public final class EpubArchive implements AutoCloseable {
                 if (total > 256L * 1024 * 1024)
                     throw new IOException("EPUB expanded content exceeds 256 MiB");
             }
-            if (entries.containsKey("META-INF/encryption.xml"))
-                throw new IOException("Encrypted EPUB resources are unsupported");
             Document container = xml(read("META-INF/container.xml", 1024 * 1024));
             NodeList roots = container.getElementsByTagNameNS("*", "rootfile");
             if (roots.getLength() == 0) throw new IOException("Missing EPUB package");
@@ -72,6 +70,7 @@ public final class EpubArchive implements AutoCloseable {
             Document packageDoc = xml(read(packagePath, 1024 * 1024));
             title = firstText(packageDoc, "title", "未命名 EPUB");
             Map<String, String> items = new HashMap<>();
+            Set<String> fontItems = new HashSet<>();
             String nav = null, ncx = null, coverPath = null, coverId = null;
             NodeList metadata = packageDoc.getElementsByTagNameNS("*", "meta");
             for (int i = 0; i < metadata.getLength(); i++) {
@@ -87,12 +86,17 @@ public final class EpubArchive implements AutoCloseable {
                 Element item = (Element) manifest.item(i);
                 String path = resolve(packagePath, item.getAttribute("href")).path;
                 items.put(item.getAttribute("id"), path);
+                String media = item.getAttribute("media-type").toLowerCase(Locale.ROOT);
+                if (media.startsWith("font/")
+                        || media.contains("font")
+                        || media.equals("application/vnd.ms-opentype")) fontItems.add(path);
                 List<String> properties =
                         Arrays.asList(item.getAttribute("properties").split("\\s+"));
                 if (properties.contains("nav")) nav = path;
                 if (properties.contains("cover-image")) coverPath = path;
                 if ("application/x-dtbncx+xml".equals(item.getAttribute("media-type"))) ncx = path;
             }
+            checkEncryption(fontItems);
             if (coverPath == null && coverId != null) coverPath = items.get(coverId);
             cover = coverPath;
             List<String> readingOrder = new ArrayList<>();
@@ -161,6 +165,70 @@ public final class EpubArchive implements AutoCloseable {
         }
     }
 
+    private void checkEncryption(Set<String> fontItems) throws IOException {
+        if (!entries.containsKey("META-INF/encryption.xml")) return;
+        Document encryption = xml(read("META-INF/encryption.xml", 1024 * 1024));
+        NodeList encrypted = encryption.getElementsByTagNameNS("*", "EncryptedData");
+        if (encrypted.getLength() == 0)
+            throw new IOException("Invalid EPUB encryption declaration");
+        for (int i = 0; i < encrypted.getLength(); i++) {
+            Element item = (Element) encrypted.item(i);
+            NodeList methods = item.getElementsByTagNameNS("*", "EncryptionMethod"),
+                    references = item.getElementsByTagNameNS("*", "CipherReference");
+            if (methods.getLength() != 1 || references.getLength() != 1)
+                throw new IOException("Encrypted EPUB resources are unsupported");
+            String algorithm = ((Element) methods.item(0)).getAttribute("Algorithm");
+            String path = resolve("", ((Element) references.item(0)).getAttribute("URI")).path;
+            if (!(algorithm.equals("http://www.idpf.org/2008/embedding")
+                            || algorithm.equals("http://ns.adobe.com/pdf/enc#RC"))
+                    || !fontItems.contains(path)
+                    || !entries.containsKey(path))
+                throw new IOException("Encrypted EPUB resources are unsupported");
+            obfuscatedFonts.add(path);
+        }
+    }
+
+    boolean obfuscatedFont(String path) {
+        return obfuscatedFonts.contains(path);
+    }
+
+    static final class TextIndex {
+        final int length;
+        final Map<String, Integer> anchors;
+
+        TextIndex(int length, Map<String, Integer> anchors) {
+            this.length = length;
+            this.anchors = anchors;
+        }
+    }
+
+    TextIndex index(byte[] bytes) throws IOException {
+        Document doc = xml(bytes);
+        NodeList bodies = doc.getElementsByTagNameNS("*", "body");
+        Node root = bodies.getLength() == 0 ? doc.getDocumentElement() : bodies.item(0);
+        Map<String, Integer> anchors = new HashMap<>();
+        int length = indexNode(root, 0, anchors, 0);
+        return new TextIndex(length, anchors);
+    }
+
+    private static int indexNode(Node node, int offset, Map<String, Integer> anchors, int depth)
+            throws IOException {
+        if (depth > 256) throw new IOException("EPUB content nesting exceeds limit");
+        String name = node.getLocalName();
+        if ("script".equalsIgnoreCase(name)
+                || "style".equalsIgnoreCase(name)
+                || "noscript".equalsIgnoreCase(name)) return offset;
+        if (node instanceof Element) {
+            String id = ((Element) node).getAttribute("id");
+            if (!id.isEmpty() && anchors.size() < 10000) anchors.putIfAbsent(id, offset);
+        }
+        if (node.getNodeType() == Node.TEXT_NODE || node.getNodeType() == Node.CDATA_SECTION_NODE)
+            return offset + node.getNodeValue().length();
+        for (Node child = node.getFirstChild(); child != null; child = child.getNextSibling())
+            offset = indexNode(child, offset, anchors, depth + 1);
+        return offset;
+    }
+
     private void addPart(List<Part> result, String title, String base, String href) {
         try {
             Resource target = resolve(base, href);
@@ -221,22 +289,11 @@ public final class EpubArchive implements AutoCloseable {
     }
 
     public String text(String href) throws IOException {
-        byte[] bytes = read(href, CONTENT_LIMIT);
-        try {
-            Document doc = xml(bytes);
-            NodeList bodies = doc.getElementsByTagNameNS("*", "body");
-            StringBuilder text = new StringBuilder();
-            appendText(bodies.getLength() == 0 ? doc.getDocumentElement() : bodies.item(0), text);
-            return text.toString();
-        } catch (IOException malformed) {
-            return new String(bytes, StandardCharsets.UTF_8)
-                    .replaceAll("(?is)<(script|style)[^>]*>.*?</\\1>", "")
-                    .replaceAll("(?s)<[^>]*>", " ")
-                    .replace("&nbsp;", " ")
-                    .replace("&amp;", "&")
-                    .replace("&lt;", "<")
-                    .replace("&gt;", ">");
-        }
+        Document doc = xml(read(href, CONTENT_LIMIT));
+        NodeList bodies = doc.getElementsByTagNameNS("*", "body");
+        StringBuilder text = new StringBuilder();
+        appendText(bodies.getLength() == 0 ? doc.getDocumentElement() : bodies.item(0), text, 0);
+        return text.toString();
     }
 
     public List<Part> links(String href) throws IOException {
@@ -253,7 +310,8 @@ public final class EpubArchive implements AutoCloseable {
         return links;
     }
 
-    private static void appendText(Node node, StringBuilder out) {
+    private static void appendText(Node node, StringBuilder out, int depth) throws IOException {
+        if (depth > 256) throw new IOException("EPUB content nesting exceeds limit");
         if (node.getNodeType() == Node.TEXT_NODE) {
             out.append(node.getNodeValue());
             return;
@@ -263,19 +321,13 @@ public final class EpubArchive implements AutoCloseable {
                 || "style".equalsIgnoreCase(name)
                 || "noscript".equalsIgnoreCase(name)) return;
         for (Node child = node.getFirstChild(); child != null; child = child.getNextSibling())
-            appendText(child, out);
+            appendText(child, out, depth + 1);
     }
 
     private static Document xml(byte[] bytes) throws IOException {
         try {
             // Android 8's Harmony factory lacks the SAX feature switches. Never accept
             // publication-defined entities; the resolver also prevents external DTD I/O.
-            String declarations =
-                    new String(bytes, StandardCharsets.UTF_8)
-                            .replace("\u0000", "")
-                            .toUpperCase(Locale.ROOT);
-            if (declarations.contains("<!ENTITY"))
-                throw new IOException("EPUB entity declarations are unsupported");
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             factory.setNamespaceAware(true);
             factory.setExpandEntityReferences(false);
@@ -293,7 +345,7 @@ public final class EpubArchive implements AutoCloseable {
             javax.xml.parsers.DocumentBuilder builder = factory.newDocumentBuilder();
             builder.setEntityResolver(
                     (publicId, systemId) -> new InputSource(new StringReader("")));
-            return builder.parse(new ByteArrayInputStream(bytes));
+            return builder.parse(new InputSource(new StringReader(EpubHtml.forXml(bytes))));
         } catch (Exception error) {
             if (error instanceof IOException) throw (IOException) error;
             throw new IOException("Invalid EPUB XML", error);

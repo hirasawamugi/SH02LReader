@@ -16,7 +16,7 @@
   }
   function pages(){return Math.max(1,Math.ceil((Math.max(document.body.scrollWidth,document.documentElement.scrollWidth)-1)/width));}
   function page(){return Math.max(0,Math.min(pages()-1,Math.round(window.pageXOffset/width)));}
-  function report(boundary){var p=page(),start=offsetAt(p*width),end=offsetAt((p+1)*width);return {page:p,pages:pages(),offset:start,end:end,total:all.length,text:all.substring(start,end),fraction:pages()<=1?0:p/pages(),boundary:!!boundary};}
+  function report(boundary){var p=page(),start=offsetAt(p*width),end=offsetAt((p+1)*width);return {page:p,pages:pages(),offset:start,end:end,total:all.length,text:all.substring(start,end),fraction:pages()<=1?0:p/pages(),boundary:!!boundary,fontsLoading:!!(document.fonts&&document.fonts.status==='loading')};}
   function jump(p){window.scrollTo(Math.max(0,Math.min(pages()-1,p))*width,0);return report(false);}
   window.__reader={
     configure:function(s){
@@ -25,7 +25,7 @@
       var css='html,body{margin:0!important;padding:0!important;background:'+s.background+'!important;}html{overflow:hidden!important;}body{height:'+height+'px!important;width:'+width+'px!important;column-width:'+width+'px!important;column-gap:0!important;column-fill:auto!important;overflow:visible!important;color:'+s.foreground+'!important;font-size:'+s.size+'px!important;line-height:'+s.lineHeight+'px!important;font-family:'+s.family+'!important;}body *{color:inherit!important;background-color:transparent!important;font-family:inherit!important;line-height:inherit!important;}p,div,span,li{font-size:1em!important;}p{margin:.5em 0!important;}h1,h2,h3,h4,h5,h6{line-height:1.35!important;margin:.5em 0!important;}h1{font-size:1.4em!important;}h2{font-size:1.25em!important;}h3,h4,h5,h6{font-size:1.1em!important;}img,svg{max-width:'+width+'px!important;max-height:'+height+'px!important;object-fit:contain;break-inside:avoid;}iframe,object,embed,form,video,audio{display:none!important;}';
       if(s.custom)css='@font-face{font-family:ReaderCustom;src:url("/__reader_font");}'+css;
       var st=document.createElement('style');st.id='__reader_style';st.textContent=css;(document.head||document.documentElement).appendChild(st);
-      collect();return report(false);
+      collect();if(s.custom&&document.fonts)document.fonts.load(s.size+'px ReaderCustom');return report(false);
     },
     seek:function(offset,fragment){
       if(fragment&&fragment.charAt(0)==='@'&&offset===0)return jump(Math.floor(Number(fragment.substring(1))*pages()));

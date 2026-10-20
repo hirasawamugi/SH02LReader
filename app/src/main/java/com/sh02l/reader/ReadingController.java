@@ -97,6 +97,11 @@ final class ReadingController {
                                                         if (current(token, target))
                                                             listener.failed(error);
                                                     }
+
+                                                    public void onNavigate(
+                                                            DocumentLocation location) {
+                                                        if (current(token, target)) seek(location);
+                                                    }
                                                 });
                                     } catch (Exception error) {
                                         opened.close();

@@ -4,7 +4,7 @@
 
 | 调整内容 | 入口与职责 |
 | --- | --- |
-| 新机型按键 | `reader-core/DeviceProfiles` 登记版本化配置，`DeviceKeyMap.Builder` 建立键码/扫描码对应；`device_profile` 偏好预留手动选择 ID。未知设备使用标准 Android 键码，不猜测扫描码。 |
+| 新机型按键 | `reader-core/DeviceProfiles` 登记版本化配置，`DeviceKeyMap.Builder` 建立键码/扫描码对应、按键标签与可选帮助布局 ID；`device_profile` 偏好预留手动选择 ID。未知设备使用标准 Android 键码，不猜测扫描码。 |
 | 页面按键 | `app/InputBindings` 从 `InputContext` 解析逻辑动作，并生成同一上下文的 F 键提示；`KeyRouter` 保留整次物理按键归属。 |
 | 菜单内容与顺序 | `app/MenuCatalog` 固定动作 ID、标题、顺序和格式能力；`LibraryFeatures/ReaderFeatures` 提供执行回调。新增动作同时补规则与提示。 |
 | 列表移动 | `reader-core/ListSelection` 负责循环/跳过说明项，`NavigationState.Screen` 保存选择及像素位置；`NavigationListView` 只负责视口。正文分页和输入不使用循环选择。 |
@@ -20,6 +20,8 @@
 `MainActivity` 负责窗口、Android 生命周期和组件装配，不再直接操纵 TXT 页对象。M0 样例导航模型仅保留在测试夹具中，产品只用 `LegacyAppearance` 读取历史外观。
 
 新增文档定位必须使用独立的 `format/version/payload`；不能把 EPUB 百分比或章节号伪装为 TXT offset。数据库中的旧 offset 对 EPUB 仅供旧书架百分比显示，恢复、书签与搜索始终使用格式定位。版本变化要显式迁移或拒绝，不能默默把未知定位当作 0。
+
+同一资源中多个目录片段通过 `DocumentSession.compare` 比较内容顺序，不能用显示百分比代替。EPUB 在资源线程准备有界的锚点索引，界面不为比较目录而读取文件；当前章节按实际上屏范围确定。直接点击 HTML 内链也通过 `ReadingSurface.Listener.onNavigate` 交回阅读控制器，由同一个跳转历史拥有返回行为。
 
 验证按修改风险选择：公共键码/选择/定位用 JVM；数据库、Android 输入和实际排版用独立 debug 包。发布脚本同时检查所有编译模块的源码来源。正式应用数据和公共 Books 原件不得为测试清空。
 

@@ -30,29 +30,37 @@ final class EpubFixtures {
                     zip,
                     "OPS/nav.xhtml",
                     "<html xmlns='http://www.w3.org/1999/xhtml'"
-                        + " xmlns:epub='http://www.idpf.org/2007/ops'><body><nav"
-                        + " epub:type='toc'><ol><li><a href='one.xhtml'>第一章</a></li><li><a"
-                        + " href='two.xhtml#target'>第二章</a></li></ol></nav></body></html>");
+                            + " xmlns:epub='http://www.idpf.org/2007/ops'><body><nav"
+                            + " epub:type='toc'><ol><li><a href='one.xhtml'>第一章</a></li><li><a"
+                            + " href='one.xhtml#mid'>第一章小节</a></li><li><a"
+                            + " href='two.xhtml#target'>第二章</a></li></ol></nav></body></html>");
             StringBuilder one =
                     new StringBuilder(
                             "<html xmlns='http://www.w3.org/1999/xhtml'><head><meta name='viewport'"
                                 + " content='width=device-width,"
                                 + " initial-scale=1'/><script>window.addEventListener('load',function(){document.body.innerHTML='SCRIPT_RAN';});</script></head><body><h1>第一章"
-                                + " 开始</h1><p><a href='two.xhtml#target'>前往第二章目标</a></p><img"
-                                + " src='cover.png'/>");
-            for (int i = 0; i < 140; i++)
+                                + " 开始</h1><p><a href='two.xhtml#target'>前往第二章目标</a> <a"
+                                + " href='#mid'>前往小节</a></p><img src='cover.png'/>");
+            for (int i = 0; i < 140; i++) {
+                if (i == 70) one.append("<h2 id='mid'>第一章小节</h2>");
                 one.append("<p>第一章段落 ")
                         .append(i)
                         .append("。中文 EPUB 内容锚点与 English 排版验证，保持书签和阅读位置。</p>");
+            }
             entry(zip, "OPS/one.xhtml", one.append("</body></html>").toString());
             StringBuilder two =
                     new StringBuilder(
                             "<html xmlns='http://www.w3.org/1999/xhtml'><body><h1"
-                                + " id='target'>第二章目标</h1>");
+                                    + " id='target'>第二章目标</h1>");
+            two.append("<p>");
+            for (int entity = 0; entity < 2000; entity++) two.append("前&nbsp;缀&mdash;");
+            two.append("</p>");
             for (int i = 0; i < 80; i++)
                 two.append("<p>第二章段落 ").append(i).append("。搜索独有词星河漫游，章节导航与重新打开。</p>");
             entry(zip, "OPS/two.xhtml", two.append("</body></html>").toString());
-            zip.putNextEntry(new ZipEntry("OPS/cover.png"));
+            ZipEntry coverEntry = new ZipEntry("OPS/cover.png");
+            coverEntry.setTime(0);
+            zip.putNextEntry(coverEntry);
             zip.write(CoverFixtures.png(100, 140));
             zip.closeEntry();
         }
@@ -60,7 +68,9 @@ final class EpubFixtures {
     }
 
     private static void entry(ZipOutputStream zip, String name, String text) throws IOException {
-        zip.putNextEntry(new ZipEntry(name));
+        ZipEntry item = new ZipEntry(name);
+        item.setTime(0);
+        zip.putNextEntry(item);
         zip.write(text.getBytes("UTF-8"));
         zip.closeEntry();
     }

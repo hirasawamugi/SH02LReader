@@ -8,11 +8,15 @@ import java.util.Map;
 /** Immutable profile; scan fallback never overrides a valid keyCode. */
 public final class DeviceKeyMap {
     private final String id;
+    private final String helpLayout;
+    private final Map<Key, String> labels;
     private final Map<Integer, Key> codes, scans;
     private final Map<Key, Integer> primaryCodes, primaryScans;
 
     private DeviceKeyMap(Builder source) {
         id = source.id;
+        helpLayout = source.helpLayout;
+        labels = Collections.unmodifiableMap(new EnumMap<>(source.labels));
         codes = Collections.unmodifiableMap(new HashMap<>(source.codes));
         scans = Collections.unmodifiableMap(new HashMap<>(source.scans));
         primaryCodes = new EnumMap<>(source.primaryCodes);
@@ -28,7 +32,11 @@ public final class DeviceKeyMap {
     }
 
     public String label(Key key) {
-        return key.name();
+        return labels.getOrDefault(key, key.name());
+    }
+
+    public String helpLayout() {
+        return helpLayout;
     }
 
     public int keyCode(Key key) {
@@ -45,6 +53,8 @@ public final class DeviceKeyMap {
 
     public static final class Builder {
         private final String id;
+        private String helpLayout = "";
+        private final EnumMap<Key, String> labels = new EnumMap<>(Key.class);
         private final Map<Integer, Key> codes = new HashMap<>(), scans = new HashMap<>();
         private final EnumMap<Key, Integer> primaryCodes = new EnumMap<>(Key.class),
                 primaryScans = new EnumMap<>(Key.class);
@@ -66,6 +76,23 @@ public final class DeviceKeyMap {
 
         public DeviceKeyMap build() {
             return new DeviceKeyMap(this);
+        }
+
+        public Builder label(Key key, String label) {
+            if (key == null
+                    || key == Key.UNKNOWN
+                    || label == null
+                    || label.isEmpty()
+                    || label.length() > 16) throw new IllegalArgumentException("key label");
+            labels.put(key, label);
+            return this;
+        }
+
+        public Builder helpLayout(String id) {
+            if (id == null || !id.matches("[a-z0-9-]{1,32}"))
+                throw new IllegalArgumentException("help layout");
+            helpLayout = id;
+            return this;
         }
     }
 }

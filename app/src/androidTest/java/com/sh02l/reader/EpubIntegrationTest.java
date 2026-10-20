@@ -11,6 +11,8 @@ public final class EpubIntegrationTest extends NativeTestBase {
         java.io.File file = EpubFixtures.create(activity.getCacheDir());
         ui(() -> activity.importFile(file));
         await(this::ready, 20000);
+        ui(() -> activity.seekTo(activity.reading().document.locationAt(0)));
+        await(() -> ready() && text().contains("第一章"), 10000);
     }
 
     private DocumentLocation location() {
@@ -32,7 +34,7 @@ public final class EpubIntegrationTest extends NativeTestBase {
         final ReaderSession[] session = {null};
         ui(() -> session[0] = activity.reading());
         assertEquals("epub", session[0].book.format);
-        assertEquals(2, session[0].document.contents().size());
+        assertEquals(3, session[0].document.contents().size());
         assertNotNull(new CoverStore(activity).get(session[0].book.id));
         ui(
                 () -> {
@@ -82,11 +84,33 @@ public final class EpubIntegrationTest extends NativeTestBase {
         press(KeyEvent.KEYCODE_DPAD_CENTER);
         await(() -> listCount() > 1, 10000);
         press(KeyEvent.KEYCODE_DPAD_CENTER);
-        await(() -> ready() && text().contains("第二章目标"), 10000);
+        await(() -> ready() && location().payload.startsWith("OPS/two.xhtml\u001f"), 10000);
         press(KeyEvent.KEYCODE_F1);
         select("return-jump");
         press(KeyEvent.KEYCODE_DPAD_CENTER);
         await(() -> ready() && text().contains("第一章"), 10000);
+        ui(
+                () ->
+                        ((android.webkit.WebView) find("reading-content"))
+                                .evaluateJavascript("document.querySelector('a').click()", null));
+        // The first chapter's link label also contains the target title. Wait for the actual
+        // resource change so asynchronous DOM clicks cannot satisfy this with stale source text.
+        await(() -> ready() && location().payload.startsWith("OPS/two.xhtml\u001f"), 10000);
+        press(KeyEvent.KEYCODE_F1);
+        select("return-jump");
+        press(KeyEvent.KEYCODE_DPAD_CENTER);
+        await(() -> ready() && text().contains("第一章"), 10000);
+        ui(
+                () ->
+                        ((android.webkit.WebView) find("reading-content"))
+                                .evaluateJavascript(
+                                        "document.querySelector('a[href=\"#mid\"]').click()",
+                                        null));
+        await(() -> ready() && text().contains("第一章小节"), 10000);
+        press(KeyEvent.KEYCODE_F1);
+        select("return-jump");
+        press(KeyEvent.KEYCODE_DPAD_CENTER);
+        await(() -> ready() && text().contains("第一章 开始"), 10000);
         SearchBatch batch = session[0].document.search("星河漫游", null, 2, () -> false);
         assertEquals(2, batch.matches.size());
         assertTrue(batch.hasMore);
@@ -126,6 +150,75 @@ public final class EpubIntegrationTest extends NativeTestBase {
         assertEquals(saved, location());
         assertTrue(text().length() > 0);
         ui(() -> activity.seekTo(activity.reading().document.locationAt(1)));
-        await(() -> ready() && text().contains("第二章段落 79"), 10000);
+        try {
+            await(() -> ready() && text().contains("第二章段落 79"), 10000);
+        } catch (AssertionError failure) {
+            java.util.concurrent.CountDownLatch reported =
+                    new java.util.concurrent.CountDownLatch(1);
+            ui(
+                    () ->
+                            ((android.webkit.WebView) find("reading-content"))
+                                    .evaluateJavascript(
+                                            "JSON.stringify({report:window.__reader.report(),width:innerWidth,height:innerHeight,scroll:document.documentElement.scrollWidth,body:document.body.scrollWidth,x:pageXOffset,tail:document.body.innerText.slice(-140)})",
+                                            result -> {
+                                                android.util.Log.i("SH02LEpubTest", result);
+                                                reported.countDown();
+                                            }));
+            reported.await(3, java.util.concurrent.TimeUnit.SECONDS);
+            throw failure;
+        }
+    }
+
+    public void testCustomFontWaitsForFinalMetrics() throws Exception {
+        epub();
+        java.io.File font = new java.io.File("/system/fonts/DroidSansMono.ttf");
+        if (!font.isFile()) font = new java.io.File("/system/fonts/Roboto-Regular.ttf");
+        assertTrue(font.isFile());
+        new FontStore(activity).importFont(new java.io.FileInputStream(font), null);
+        final java.util.concurrent.CountDownLatch
+                started = new java.util.concurrent.CountDownLatch(1),
+                release = new java.util.concurrent.CountDownLatch(1);
+        ui(
+                () -> {
+                    android.webkit.WebView web = (android.webkit.WebView) find("reading-content");
+                    android.webkit.WebViewClient original = web.getWebViewClient();
+                    web.setWebViewClient(
+                            new android.webkit.WebViewClient() {
+                                public android.webkit.WebResourceResponse shouldInterceptRequest(
+                                        android.webkit.WebView view,
+                                        android.webkit.WebResourceRequest request) {
+                                    if (request.getUrl().getPath().equals("/__reader_font")) {
+                                        started.countDown();
+                                        try {
+                                            release.await(4, java.util.concurrent.TimeUnit.SECONDS);
+                                        } catch (InterruptedException stop) {
+                                            Thread.currentThread().interrupt();
+                                        }
+                                    }
+                                    return original.shouldInterceptRequest(view, request);
+                                }
+                            });
+                    activity.readingSettings().font = 4;
+                    activity.readingSettings().invalidateFont();
+                    activity.layoutChanged();
+                });
+        try {
+            assertTrue(started.await(3, java.util.concurrent.TimeUnit.SECONDS));
+            assertFalse("Must not publish fallback font positions", ready());
+        } finally {
+            release.countDown();
+        }
+        await(this::ready, 10000);
+        assertTrue(text().length() > 0);
+    }
+
+    public void testSubsectionKeysFollowSameResourceAnchors() throws Exception {
+        epub();
+        press(KeyEvent.KEYCODE_3);
+        await(() -> ready() && text().contains("第一章小节"), 10000);
+        press(KeyEvent.KEYCODE_3);
+        await(() -> ready() && text().contains("第二章目标"), 10000);
+        press(KeyEvent.KEYCODE_1);
+        await(() -> ready() && text().contains("第一章小节"), 10000);
     }
 }

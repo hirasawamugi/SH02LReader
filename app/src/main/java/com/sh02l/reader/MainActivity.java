@@ -67,6 +67,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
     private TextView noticeView, infoView, diagnosticView;
     private View readingView;
     private KeyHelpView helpView;
+    private SoftKeyBar baseFooter, overlayFooter;
     private long generation;
     private DocumentLocation committedLocation;
     private String committedBook = "", notice = "F2 导入图书，确认打开；F3 通用菜单";
@@ -76,7 +77,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
     private int builtOverlayTheme = -1;
     private boolean resumed;
     private int fontSize, theme, brightness, foreground, secondary, background, surface;
-    private boolean infoVisible, layoutBusy, loadingLibrary, destroyed;
+    private boolean infoVisible, loadingLibrary, destroyed;
     private ReaderSession session;
     private Uri pendingUri;
     private ImportRequest importRequest, pickerRequest, modeRequest, storagePermissionRequest;
@@ -1392,11 +1393,16 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
         screen.rows.add(new Row("back", "返回正文"));
         for (ContentEntry entry : session.document.contents()) {
             screen.rows.add(new Row("chapter", entry.title, entry));
-            if (session.document.progressionAt(entry.location) <= session.position.progression)
+            if (session.document.compare(entry.location, chapterReference()) < 0)
                 screen.selected = screen.rows.size() - 1;
         }
         if (screen.rows.size() == 1) screen.rows.add(new Row("noop", "此书暂无目录"));
         push(screen);
+    }
+
+    private DocumentLocation chapterReference() {
+        DocumentLocation end = readingController.end();
+        return readingController.ready() && end != null ? end : session.position.location;
     }
 
     private void chapter(int direction) {
@@ -1405,8 +1411,8 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
         if (entries.isEmpty()) return;
         int current = 0;
         for (int i = 0; i < entries.size(); i++)
-            if (session.document.progressionAt(entries.get(i).location)
-                    <= session.position.progression) current = i;
+            if (session.document.compare(entries.get(i).location, chapterReference()) < 0)
+                current = i;
         seekTo(entries.get(bound(current + direction, 0, entries.size() - 1)).location);
     }
 
@@ -1490,7 +1496,6 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
         runOnUiThread(
                 () -> {
                     if (!valid(token)) return;
-                    layoutBusy = false;
                     loadingLibrary = false;
                     notice = message;
                     if (!pausedBookId.isEmpty()) {
@@ -1559,6 +1564,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
             }
         } else {
             overlayHost.removeAllViews();
+            overlayFooter = null;
             builtOverlay = null;
             overlayList = null;
             helpView = null;
@@ -1602,6 +1608,13 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
                                     + "号");
         if (diagnosticView != null)
             diagnosticView.setText("累计事件：" + diagnostics.eventCount() + "\n" + diagnostics.tail(2));
+        if (baseFooter != null)
+            baseFooter.setHints(
+                    InputBindings.hints(inputContext(), deviceKeys),
+                    Palette.forTheme(content.kind == Kind.READER ? theme : uiTheme));
+        if (overlayFooter != null)
+            overlayFooter.setHints(
+                    InputBindings.hints(inputContext(), deviceKeys), Palette.forTheme(uiTheme));
         windowPolicy();
         if (top().kind == Kind.READER) requestLayoutIfReady();
     }
@@ -1667,6 +1680,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
         noticeView.setPadding(0, dp(4), 0, dp(3));
         column.addView(noticeView);
         SoftKeyBar footer = new SoftKeyBar(this);
+        baseFooter = footer;
         Palette colors = Palette.forTheme(screen.kind == Kind.READER ? theme : uiTheme);
         footer.setHints(InputBindings.hints(inputContext(), deviceKeys), colors);
         column.addView(footer);
@@ -1719,6 +1733,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
             panel.addView(overlayList, new LinearLayout.LayoutParams(-1, 0, 1));
         }
         SoftKeyBar footer = new SoftKeyBar(this);
+        overlayFooter = footer;
         footer.setHints(InputBindings.hints(inputContext(), deviceKeys), palette);
         panel.addView(footer);
         int height =
@@ -2125,7 +2140,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
                                     if (top() == origin)
                                         builtOverlay =
                                                 null; // Async rows can need more space than their
-                                                      // loading placeholder.
+                                    // loading placeholder.
                                     render();
                                 });
                     } catch (Exception error) {

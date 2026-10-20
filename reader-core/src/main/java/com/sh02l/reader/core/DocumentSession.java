@@ -22,6 +22,10 @@ public interface DocumentSession extends AutoCloseable {
 
     double progressionAt(DocumentLocation location);
 
+    default int compare(DocumentLocation first, DocumentLocation second) {
+        return Double.compare(progressionAt(first), progressionAt(second));
+    }
+
     default List<ContentEntry> links(DocumentLocation location) throws IOException {
         return java.util.Collections.emptyList();
     }
