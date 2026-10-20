@@ -6,4 +6,6 @@
 
 实测设备为 SH-02L，Android 8.1.0 / API 27，540×960、240 dpi，ABI `armeabi-v7a,armeabi`。系统字号比例为 1.3；布局按实际密度、字号和可用宽高计算。M1 的读取和排版证据见 [M1 验证记录](../docs/M1_VALIDATION.md)，日志置于本工程被 Git 忽略的 `tools/logs/`。
 
+2026-10-20 M2.5 USB 准备检查：当前系统 WebView 为 `com.android.webview 67.0.3396.127`，设备读写权限保留，正式应用为 `0.3.1-m2` / code 6；从设备拉取的 APK 与已发布 M2 哈希相同。证据见 `tools/logs/m25-device-preflight-20261020.txt`、`m25-installed-baseline.json`。此为设备与安装包基线，不代表 EPUB 兼容性已经通过。
+
 资料溯源：[旧工程原始按键记录](../../AAReader/sh02l按键值.txt)。此链接仅用于查阅来源，不作为构建或运行依赖。

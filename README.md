@@ -4,9 +4,11 @@
 
 当前候选为 M2（`0.3.1-m2`）：在 M1.5 基础上增加正文搜索、百分比跳转、编码纠正、行距/边距/字体、书籍与书签管理、封面移除、分页书架和存储管理。可确认删除私有图书、选择清理 import 和回收可重建缓存，保留外部来源文件；数据库覆盖升级保留用户书库。新增输入使用系统原生控件，F3 确认、F2/F4 取消。功能与限制见 [M2 变更说明](docs/M2_RELEASE_NOTES.md)，本轮实际验证见 [M2 验证](docs/M2_VALIDATION.md)。
 
-M1.5 的原有主题、列表与封面功能继续保留；历史记录见 [主题与导航修订验证](docs/M1_5_THEME_NAVIGATION_VALIDATION.md)。2026-10-20 路线调整：新增 M2.5 做代码/功能优化并融合原 M4 的 EPUB 接入，再按情况进行 M3 综合验收。下一步审阅 [M2.5 设计草案与优化候选](docs/superpowers/specs/2026-10-20-m2-5-optimization-epub-design.md)，当前 APK 与既有验证结果保持为 M2；最新交接见 [HANDOFF](docs/HANDOFF.md)。
+M1.5 的原有主题、列表与封面功能继续保留；历史记录见 [主题与导航修订验证](docs/M1_5_THEME_NAVIGATION_VALIDATION.md)。2026-10-20 路线调整：新增 M2.5 做代码/功能优化并融合原 M4 的 EPUB 接入，再按情况进行 M3 综合验收。[M2.5 设计与用户要求](docs/superpowers/specs/2026-10-20-m2-5-optimization-epub-design.md)已整理，当前 APK 与既有验证结果保持为 M2；最新交接见 [HANDOFF](docs/HANDOFF.md)。
 
 M2.5 按用户要求一次整合交付，不拆内部版本；开发使用针对性检查，整合后集中构建、关键回归与升级验证，减少重复计划、审阅和测试。
+
+M2.5 正式迭代准备已完成 USB、安装包身份和设备环境核对；[简明实施任务表](docs/superpowers/plans/2026-10-20-m2-5-optimization-epub.md)已准备。现有正式包仍为 M2，新功能尚未实现或安装。
 
 | 路径 | 内容 |
 | --- | --- |
