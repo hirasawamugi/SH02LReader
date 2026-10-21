@@ -7,6 +7,127 @@ import com.sh02l.reader.core.*;
 import java.util.List;
 
 public final class EpubIntegrationTest extends NativeTestBase {
+    private android.webkit.WebView web() {
+        return (android.webkit.WebView) find("reading-content");
+    }
+
+    private float visibleAlpha() {
+        final float[] value = {0};
+        ui(() -> value[0] = web().getAlpha());
+        return value[0];
+    }
+
+    private String javascript(String script) throws Exception {
+        java.util.concurrent.CountDownLatch completed = new java.util.concurrent.CountDownLatch(1);
+        final String[] result = {null};
+        ui(
+                () ->
+                        web().evaluateJavascript(
+                                        script,
+                                        value -> {
+                                            result[0] = value;
+                                            completed.countDown();
+                                        }));
+        assertTrue(completed.await(3, java.util.concurrent.TimeUnit.SECONDS));
+        return result[0];
+    }
+
+    private void illustrated(boolean missing) throws Exception {
+        java.io.File file = EpubFixtures.illustrated(activity.getCacheDir(), missing);
+        ui(() -> activity.importFile(file));
+        await(this::ready, 20000);
+        ui(() -> activity.seekTo(activity.reading().document.locationAt(0)));
+        await(() -> ready() && location().payload.startsWith("OPS/one.xhtml\u001f"), 10000);
+    }
+
+    public void testIllustratedSectionPublishesStableLocation() throws Exception {
+        illustrated(false);
+        java.util.concurrent.CountDownLatch started = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        ui(
+                () -> {
+                    android.webkit.WebViewClient original = web().getWebViewClient();
+                    web().setWebViewClient(
+                                    new android.webkit.WebViewClient() {
+                                        public android.webkit.WebResourceResponse
+                                                shouldInterceptRequest(
+                                                        android.webkit.WebView view,
+                                                        android.webkit.WebResourceRequest request) {
+                                            if (request.getUrl()
+                                                    .getPath()
+                                                    .endsWith("/m3-art.png")) {
+                                                started.countDown();
+                                                try {
+                                                    release.await(
+                                                            4,
+                                                            java.util.concurrent.TimeUnit.SECONDS);
+                                                } catch (InterruptedException stop) {
+                                                    Thread.currentThread().interrupt();
+                                                }
+                                            }
+                                            return original.shouldInterceptRequest(view, request);
+                                        }
+
+                                        public void onPageFinished(
+                                                android.webkit.WebView view, String url) {
+                                            original.onPageFinished(view, url);
+                                        }
+                                    });
+                    activity.seekTo(
+                            com.sh02l.reader.epub.EpubDocumentSession.location(
+                                    "OPS/two.xhtml", 0, ""));
+                });
+        try {
+            assertTrue(started.await(3, java.util.concurrent.TimeUnit.SECONDS));
+            assertFalse(ready());
+            assertEquals("Do not expose an unfinished image document", 0f, visibleAlpha(), .01f);
+        } finally {
+            release.countDown();
+        }
+        await(this::ready, 10000);
+        assertEquals(1f, visibleAlpha(), .01f);
+        assertEquals(
+                "true",
+                javascript(
+                        "document.getElementById('m3-art').complete &&"
+                            + " document.getElementById('m3-art').naturalWidth === 800"));
+        DocumentLocation stable = location();
+        java.util.concurrent.CountDownLatch drawn = new java.util.concurrent.CountDownLatch(1);
+        ui(
+                () ->
+                        web().postVisualStateCallback(
+                                        97,
+                                        new android.webkit.WebView.VisualStateCallback() {
+                                            public void onComplete(long id) {
+                                                drawn.countDown();
+                                            }
+                                        }));
+        assertTrue(drawn.await(3, java.util.concurrent.TimeUnit.SECONDS));
+        assertEquals(stable, location());
+        press(KeyEvent.KEYCODE_DPAD_DOWN);
+        await(this::ready, 10000);
+    }
+
+    public void testUnavailableImageDoesNotBlockReading() throws Exception {
+        illustrated(true);
+        ui(
+                () ->
+                        activity.seekTo(
+                                com.sh02l.reader.epub.EpubDocumentSession.location(
+                                        "OPS/two.xhtml", 0, "")));
+        await(() -> ready() && location().payload.startsWith("OPS/two.xhtml\u001f"), 10000);
+        assertEquals(1f, visibleAlpha(), .01f);
+        assertEquals(
+                "true",
+                javascript(
+                        "document.getElementById('m3-art').complete &&"
+                            + " document.getElementById('m3-art').naturalWidth === 0"));
+        press(KeyEvent.KEYCODE_DPAD_DOWN);
+        await(this::ready, 10000);
+        press(KeyEvent.KEYCODE_F4);
+        awaitLibrary();
+    }
+
     private void epub() throws Exception {
         java.io.File file = EpubFixtures.create(activity.getCacheDir());
         ui(() -> activity.importFile(file));
@@ -106,7 +227,20 @@ public final class EpubIntegrationTest extends NativeTestBase {
                                 .evaluateJavascript(
                                         "document.querySelector('a[href=\"#mid\"]').click()",
                                         null));
-        await(() -> ready() && text().contains("第一章小节"), 10000);
+        try {
+            await(() -> ready() && text().contains("第一章小节"), 10000);
+        } catch (AssertionError failure) {
+            android.util.Log.i(
+                    "M3EpubFailure",
+                    "native="
+                            + location()
+                            + " ready="
+                            + ready()
+                            + " dom="
+                            + javascript(
+                                    "JSON.stringify({url:location.href,width:innerWidth,height:innerHeight,x:pageXOffset,mid:document.getElementById('mid').getBoundingClientRect().left,report:window.__reader.report()})"));
+            throw failure;
+        }
         press(KeyEvent.KEYCODE_F1);
         select("return-jump");
         press(KeyEvent.KEYCODE_DPAD_CENTER);

@@ -74,6 +74,10 @@ final class EpubHtml {
     }
 
     static byte[] forDisplay(byte[] bytes) throws IOException {
+        return forDisplay(bytes, null);
+    }
+
+    static byte[] forDisplay(byte[] bytes, String initialCss) throws IOException {
         String text = source(bytes).replaceAll("(?s)<!--.*?-->", "");
         Matcher tags = META.matcher(text);
         StringBuffer clean = new StringBuffer();
@@ -94,6 +98,15 @@ final class EpubHtml {
             Matcher html = Pattern.compile("(?i)<html\\b[^>]*>").matcher(text);
             int at = html.find() ? html.end() : 0;
             text = text.substring(0, at) + "<head>" + viewport + "</head>" + text.substring(at);
+        }
+        if (initialCss != null) {
+            String style = "<style id=\"__reader_initial\">" + initialCss + "</style>";
+            Matcher closingHead = Pattern.compile("(?i)</head\\s*>").matcher(text);
+            int at =
+                    closingHead.find()
+                            ? closingHead.start()
+                            : text.indexOf(viewport) + viewport.length();
+            text = text.substring(0, at) + style + text.substring(at);
         }
         return text.getBytes(StandardCharsets.UTF_8);
     }

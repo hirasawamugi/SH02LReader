@@ -84,7 +84,16 @@ public final class EpubReadingSurface implements ReadingSurface {
                     public boolean shouldOverrideUrlLoading(
                             WebView web, WebResourceRequest request) {
                         Uri uri = request.getUrl();
-                        if (!host.equals(uri.getHost())) return true;
+                        // Same-document fragment clicks can scroll Chromium without a normal
+                        // navigation callback. The trusted reader script forwards them explicitly.
+                        if ("reader-nav".equals(uri.getScheme())) {
+                            if (!host.equals(uri.getHost())) return true;
+                            String target = uri.getQueryParameter("target");
+                            if (target == null) return true;
+                            uri = Uri.parse(target);
+                        }
+                        if (!"https".equals(uri.getScheme()) || !host.equals(uri.getHost()))
+                            return true;
                         try {
                             EpubArchive.Resource resource =
                                     document.archive.resolve(
@@ -104,7 +113,7 @@ public final class EpubReadingSurface implements ReadingSurface {
 
                     @Override
                     public void onPageFinished(WebView web, String url) {
-                        if (!closed && loading && url.equals(view.getUrl())) {
+                        if (!closed && loading && !pageLoaded && url.equals(view.getUrl())) {
                             pageLoaded = true;
                             reflow(wanted);
                         }
@@ -167,7 +176,18 @@ public final class EpubReadingSurface implements ReadingSurface {
                 ready = false;
                 pageLoaded = false;
                 epoch++;
+                view.setAlpha(0f);
+                final long request = epoch;
                 view.loadUrl("https://" + host + "/" + Uri.encode(path, "/"));
+                view.postDelayed(
+                        () -> {
+                            if (!closed && request == epoch && !pageLoaded) {
+                                pageLoaded = true;
+                                view.stopLoading();
+                                reflow(wanted);
+                            }
+                        },
+                        4000);
             } else {
                 loading = true;
                 evaluate(
@@ -187,6 +207,8 @@ public final class EpubReadingSurface implements ReadingSurface {
                 || view.getHeight() < 1) return;
         wanted = location;
         loading = true;
+        ready = false;
+        view.setAlpha(0f);
         long token = ++epoch;
         try {
             float density = view.getResources().getDisplayMetrics().density;
@@ -197,6 +219,7 @@ public final class EpubReadingSurface implements ReadingSurface {
             css.put("background", String.format(Locale.ROOT, "#%06x", style.background & 0xffffff));
             css.put("family", style.fontPath != null ? "ReaderCustom" : style.fontFamily);
             css.put("custom", style.fontPath != null);
+            css.put("css", readerCss());
             String[] parts = EpubDocumentSession.parts(location);
             view.setBackgroundColor(style.background);
             String script =
@@ -246,8 +269,8 @@ public final class EpubReadingSurface implements ReadingSurface {
                         if (raw == null || raw.equals("null"))
                             throw new IOException("EPUB renderer not ready");
                         JSONObject result = new JSONObject(raw);
-                        if (result.optBoolean("fontsLoading")) {
-                            if (attempt >= 80) throw new IOException("EPUB font loading timeout");
+                        if (result.optBoolean("fontsLoading")
+                                || result.optBoolean("imagesLoading")) {
                             String[] target = EpubDocumentSession.parts(wanted);
                             String retry =
                                     "window.__reader.seek("
@@ -255,6 +278,16 @@ public final class EpubReadingSurface implements ReadingSurface {
                                             + ","
                                             + JSONObject.quote(target[2])
                                             + ")";
+                            if (attempt >= 80) {
+                                if (result.optBoolean("fontsLoading"))
+                                    throw new IOException("EPUB font loading timeout");
+                                evaluate(
+                                        "window.__reader.finishImages();" + retry,
+                                        token,
+                                        direction,
+                                        0);
+                                return;
+                            }
                             view.postDelayed(
                                     () -> {
                                         if (!closed && token == epoch)
@@ -275,26 +308,81 @@ public final class EpubReadingSurface implements ReadingSurface {
                                 return;
                             }
                         }
-                        current =
+                        final DocumentLocation displayed =
                                 EpubDocumentSession.location(
                                         path,
                                         result.getInt("offset"),
                                         "@" + result.getDouble("fraction"));
-                        wanted = current;
-                        end = EpubDocumentSession.location(path, result.getInt("end"), "");
-                        visibleText = result.optString("text");
-                        loading = false;
-                        ready = true;
-                        view.setContentDescription("正文\n" + visibleText);
-                        listener.onLocation(current, document.progressionAt(current));
-                        listener.onReady();
-                        pump();
+                        final DocumentLocation displayedEnd =
+                                EpubDocumentSession.location(path, result.getInt("end"), "");
+                        final String displayedText = result.optString("text");
+                        view.postVisualStateCallback(
+                                token,
+                                new WebView.VisualStateCallback() {
+                                    @Override
+                                    public void onComplete(long requestId) {
+                                        if (closed || token != epoch) return;
+                                        current = displayed;
+                                        wanted = current;
+                                        end = displayedEnd;
+                                        visibleText = displayedText;
+                                        loading = false;
+                                        ready = true;
+                                        view.setAlpha(1f);
+                                        view.setContentDescription("正文\n" + visibleText);
+                                        listener.onLocation(
+                                                current, document.progressionAt(current));
+                                        listener.onReady();
+                                        pump();
+                                    }
+                                });
                     } catch (Exception error) {
                         loading = false;
                         ready = false;
                         listener.onError(error);
                     }
                 });
+    }
+
+    private String readerCss() {
+        float density = view.getResources().getDisplayMetrics().density;
+        int width = Math.max(1, Math.round(view.getWidth() / density));
+        int height = Math.max(1, Math.round(view.getHeight() / density));
+        String background = String.format(Locale.ROOT, "#%06x", style.background & 0xffffff);
+        String foreground = String.format(Locale.ROOT, "#%06x", style.foreground & 0xffffff);
+        String family = style.fontPath != null ? "ReaderCustom" : style.fontFamily;
+        return (style.fontPath != null
+                        ? "@font-face{font-family:ReaderCustom;src:url(\"/__reader_font\");}"
+                        : "")
+                + "html,body{margin:0!important;padding:0!important;background:"
+                + background
+                + "!important;}"
+                + "html{overflow:hidden!important;}body{height:"
+                + height
+                + "px!important;width:"
+                + width
+                + "px!important;column-width:"
+                + width
+                + "px!important;column-gap:0!important;column-fill:auto!important;"
+                + "overflow:visible!important;color:"
+                + foreground
+                + "!important;font-size:"
+                + (style.textSize / density)
+                + "px!important;line-height:"
+                + ((style.textSize * 1.3f + style.lineExtra) / density)
+                + "px!important;font-family:"
+                + family
+                + "!important;}body"
+                + " *{color:inherit!important;background-color:transparent!important;font-family:inherit!important;line-height:inherit!important;}p,div,span,li{font-size:1em!important;}p{margin:.5em"
+                + " 0!important;}h1,h2,h3,h4,h5,h6{line-height:1.35!important;margin:.5em"
+                + " 0!important;}"
+                + "h1{font-size:1.4em!important;}h2{font-size:1.25em!important;}h3,h4,h5,h6{font-size:1.1em!important;}"
+                + "img,svg{max-width:"
+                + width
+                + "px!important;max-height:"
+                + height
+                + "px!important;object-fit:contain;break-inside:avoid;}"
+                + "iframe,object,embed,form,video,audio{display:none!important;}";
     }
 
     private WebResourceResponse resource(Uri uri) {
@@ -349,7 +437,7 @@ public final class EpubReadingSurface implements ReadingSurface {
                     return denied();
                 if (mime.equals("text/html")) {
                     document.prepareContent(resourcePath, bytes);
-                    bytes = EpubHtml.forDisplay(bytes);
+                    bytes = EpubHtml.forDisplay(bytes, readerCss());
                 }
                 if (mime.startsWith("image/") && !mime.equals("image/svg+xml")) {
                     BitmapFactory.Options size = new BitmapFactory.Options();

@@ -12,6 +12,20 @@ import javax.xml.parsers.DocumentBuilderFactory;
 
 public class EpubHtmlTest {
     @Test
+    public void readerStyleIsInTheDocumentBeforeTheFirstBodyFrame() throws Exception {
+        String html =
+                "<html><head><style>body{color:red}</style></head><body>image page</body></html>";
+        String css = "body{color:#123456!important;font-size:18px!important}";
+        String display =
+                new String(
+                        EpubHtml.forDisplay(html.getBytes(StandardCharsets.UTF_8), css),
+                        StandardCharsets.UTF_8);
+        assertTrue(display.indexOf("__reader_initial") > display.indexOf("body{color:red}"));
+        assertTrue(display.indexOf(css) < display.indexOf("<body>"));
+        assertEquals(1, display.split("name=\"viewport\"", -1).length - 1);
+    }
+
+    @Test
     public void namedReferencesAndUtf16KeepTheirExactTextOffsets() throws Exception {
         String original =
                 "<?xml version='1.0' encoding='UTF-16'?><html><head><meta name='viewport'"

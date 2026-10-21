@@ -12,3 +12,10 @@
 - Ruling: build.ps1 新增 focused（assembleDebug + assembleDebugAndroidTest）用于关联检查 — 发现 test-apk 只打测试包，安装的主 debug APK 仍旧，首次 GREEN 实际重复了旧 APK 的两个失败；保留该证据 — 错误代价为新增一条构建选项，现有 verify/release 不变，避免后续误装旧实现或重复完整 Lint。
 - Task 1: complete；连续读取保留未完成页，单次布局最多 16384 UTF-16 单元、3 个布局窗口、1024 个仅含偏移的页范围；章节起点复用既有索引。原真机两个 RED 均转 GREEN，连同既有多字号逐字/反向检查共 3 项通过（3.822s），证据 instrumentation-m3-txt-green-corrected.txt。现用第 23 节原文仍待逐字核对，不影响独立机制复现。
 - Task 2: in progress；将用延迟图像资源检查过渡页面是否提前暴露，并保留坏图返回路径。
+- Task 2 RED: 最初两个检查未越过 NativeTestBase 的列表焦点初始化；导出时的触控模式造成初始无选择，恢复方向键模式后取得有效结果。延迟图片期间 alpha expected 0 / actual 1，坏图流程原本通过；不把初始化超时当 EPUB 缺陷。
+- Task 2/3：整合定点 8 项中 7 项通过；图片过渡、坏图、重排重开、字体和 3 个写入场景通过。同资源直接片段链接关联用例超时，正在采样 DOM/native 定位，不重复其余 7 项。
+- Task 3: complete；进度多字段拒写与重新提交、导入文件已发布但目录未提交的重试、缓存替换在数据库提交前/后的两代现场均通过。仅新增隔离测试，存储产品实现未修改；不把这些结果宣称为硬件断电试验。
+- Task 2 关联 RED：DOM 已到 #mid / 第 18 页，native 仍为 offset 0 且 ready=true；旧 WebView 同文档锚点滚动绕过普通导航回调。新增一次诊断确认该状态。
+- Ruling: 受信阅读脚本统一捕获链接，通过仅限当前随机书籍 host 的 reader-nav 路由交还原生导航 — 避免依赖页面完成回调来猜测同文档跳转，保留同一个跳转历史 — 错误代价为增加一条内部导航路径；原生再次限定目标为当前 host 的 https 归档资源，不启动其他应用或开放资源访问。
+- Task 2 关联 GREEN：直接跨资源/同资源点击及跳转返回、章节快捷键两项通过（18.79s，instrumentation-m3-link-fix.txt）；最终 JVM/整合批次待集中检查。
+- Task 4: in progress；版本拟定值已落为 0.5.0-m3 / code 8，补 M3 发布映射；新增一次小样本测量方法，最终选定批次共约 15 项。正式外观基线：白色、独立封面；阅读白色、15 号、80% 窗口亮度、信息栏显示、4 dp 行距、12/10 dp 边距。WebView 67，系统多进程模式关闭。

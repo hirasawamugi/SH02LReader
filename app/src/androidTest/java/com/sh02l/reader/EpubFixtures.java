@@ -67,6 +67,55 @@ final class EpubFixtures {
         return file;
     }
 
+    static File illustrated(File root, boolean missing) throws IOException {
+        File baseline = create(root);
+        File file = new File(root, missing ? "m3-missing-image.epub" : "m3-illustrated.epub");
+        try (ZipFile input = new ZipFile(baseline);
+                ZipOutputStream output = new ZipOutputStream(new FileOutputStream(file))) {
+            java.util.Enumeration<? extends ZipEntry> entries = input.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry original = entries.nextElement();
+                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                try (InputStream in = input.getInputStream(original)) {
+                    byte[] buffer = new byte[8192];
+                    int count;
+                    while ((count = in.read(buffer)) != -1) bytes.write(buffer, 0, count);
+                }
+                byte[] content = bytes.toByteArray();
+                if (original.getName().equals("OPS/two.xhtml")) {
+                    String html =
+                            new String(content, "UTF-8")
+                                    .replace(
+                                            "</h1>",
+                                            "</h1><img id='m3-art' src='m3-art.png'/><svg"
+                                                + " xmlns='http://www.w3.org/2000/svg' width='90'"
+                                                + " height='50'><circle cx='25' cy='25' r='20'"
+                                                + " fill='blue'/></svg>");
+                    content = html.getBytes("UTF-8");
+                } else if (original.getName().equals("OPS/package.opf")) {
+                    content =
+                            new String(content, "UTF-8")
+                                    .replace(
+                                            "</manifest>",
+                                            "<item id='m3-art' href='m3-art.png'"
+                                                + " media-type='image/png'/></manifest>")
+                                    .getBytes("UTF-8");
+                }
+                ZipEntry copy = new ZipEntry(original.getName());
+                copy.setTime(0);
+                output.putNextEntry(copy);
+                output.write(content);
+                output.closeEntry();
+            }
+            if (!missing) {
+                output.putNextEntry(new ZipEntry("OPS/m3-art.png"));
+                output.write(CoverFixtures.png(800, 300));
+                output.closeEntry();
+            }
+        }
+        return file;
+    }
+
     private static void entry(ZipOutputStream zip, String name, String text) throws IOException {
         ZipEntry item = new ZipEntry(name);
         item.setTime(0);
