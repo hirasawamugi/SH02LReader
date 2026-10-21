@@ -1,4 +1,4 @@
-param([string]$Version = '0.4.0-m2.5')
+param([string]$Version = '0.5.0-m3')
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z0-9.]+)?$') { throw 'Invalid version.' }
 $taskProjectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
@@ -47,7 +47,7 @@ Copy-Item -LiteralPath $taskSourceApk -Destination $taskApk -Force
 $taskSignature | Set-Content -LiteralPath (Join-Path $taskOutputRoot 'signature.txt') -Encoding UTF8
 $taskBadging | Set-Content -LiteralPath (Join-Path $taskOutputRoot 'apk-info.txt') -Encoding UTF8
 ($taskHash + '  ' + $taskApkName) | Set-Content -LiteralPath (Join-Path $taskOutputRoot 'SHA256SUMS.txt') -Encoding ASCII
-$taskDocumentPrefix = if ($Version -match '-m2\.5$') { 'M2_5' } elseif ($Version -match '-m2$') { 'M2' } else { 'M1_5' }
+$taskDocumentPrefix = if ($Version -match '-m3$') { 'M3' } elseif ($Version -match '-m2\.5$') { 'M2_5' } elseif ($Version -match '-m2$') { 'M2' } else { 'M1_5' }
 Copy-Item -LiteralPath (Join-Path $taskProjectRoot ('docs\' + $taskDocumentPrefix + '_VALIDATION.md')) -Destination (Join-Path $taskOutputRoot 'VALIDATION.md') -Force
 Copy-Item -LiteralPath (Join-Path $taskProjectRoot ('docs\' + $taskDocumentPrefix + '_RELEASE_NOTES.md')) -Destination (Join-Path $taskOutputRoot 'CHANGELOG.md') -Force
 foreach ($taskDocument in @(($taskDocumentPrefix + '_VALIDATION.md'),($taskDocumentPrefix + '_RELEASE_NOTES.md'),($taskDocumentPrefix + '_REVIEW.md'),'CODE_STRUCTURE.md','MATVT_DIAGNOSIS.md')) {
@@ -55,7 +55,7 @@ foreach ($taskDocument in @(($taskDocumentPrefix + '_VALIDATION.md'),($taskDocum
     if (Test-Path -LiteralPath $taskDocumentPath) { Copy-Item -LiteralPath $taskDocumentPath -Destination (Join-Path $taskOutputRoot $taskDocument) -Force }
 }
 Copy-Item -LiteralPath (Join-Path $taskProjectRoot 'docs\TXT_STORAGE.md') -Destination (Join-Path $taskOutputRoot 'TXT_STORAGE.md') -Force
-$taskImageFolder = if ($taskDocumentPrefix -eq 'M2_5') { 'm2-5' } elseif ($taskDocumentPrefix -eq 'M2') { 'm2' } else { 'm1-5' }
+$taskImageFolder = if ($taskDocumentPrefix -eq 'M3') { 'm3' } elseif ($taskDocumentPrefix -eq 'M2_5') { 'm2-5' } elseif ($taskDocumentPrefix -eq 'M2') { 'm2' } else { 'm1-5' }
 $taskImageOutput = Join-Path $taskOutputRoot ('images\' + $taskImageFolder)
 New-Item -ItemType Directory -Path $taskImageOutput -Force | Out-Null
 foreach ($taskImage in Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot ('docs\images\' + $taskImageFolder)) -Filter '*.png' -File -ErrorAction SilentlyContinue) {
@@ -65,7 +65,7 @@ $taskRecord = [ordered]@{
     version=$Version; applicationId='com.sh02l.reader'; minSdk=27; targetSdk=35
     apk=$taskApkName; bytes=(Get-Item -LiteralPath $taskApk).Length; sha256=$taskHash
     sourceCommit=$taskBuildCommit; publicationCommit=$taskCommit; sourceClean=($taskSourceStatus.Count -eq 0)
-    stage=$(if ($taskDocumentPrefix -eq 'M2_5') { 'M2.5 shared architecture, keypad menus and EPUB' } elseif ($taskDocumentPrefix -eq 'M2') { 'M2 daily reading and storage management' } else { 'M1.5 themes, keypad UI and safe import' }); toolchain='AGP 8.6.1 / Gradle 8.7 / JDK 17'
+    stage=$(if ($taskDocumentPrefix -eq 'M3') { 'M3 reading improvements and lightweight write-boundary validation' } elseif ($taskDocumentPrefix -eq 'M2_5') { 'M2.5 shared architecture, keypad menus and EPUB' } elseif ($taskDocumentPrefix -eq 'M2') { 'M2 daily reading and storage management' } else { 'M1.5 themes, keypad UI and safe import' }); toolchain='AGP 8.6.1 / Gradle 8.7 / JDK 17'
 }
 $taskRecord | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $taskOutputRoot 'build-info.json') -Encoding UTF8
 $taskRecord | ConvertTo-Json
