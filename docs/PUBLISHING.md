@@ -64,4 +64,6 @@ git push -u origin main
 250466cea5fabb21d6ffaa6b4c75ef7378aa1a022b8a16e725d01db3b20b2532
 ```
 
-源码仓库已完成首次上传；本文的 tag 与 GitHub Release 部分为后续发布步骤，本次没有创建它们。M3 本地交付证据见 [验证记录](M3_VALIDATION.md)。
+2026-10-21 已发布 [v0.5.0-m3](https://github.com/hirasawamugi/SH02LReader/releases/tag/v0.5.0-m3)，标记为 M3 里程碑预发布，附件为 APK、`SHA256SUMS.txt` 和 `build-info.json`。tag 指向 `79a1b703d42fa1b815d8a6d94e17cd06d390daf5`，编译模块与 APK 内嵌来源 `894672f` 一致；其后的文档提交继续保留在 `main`。
+
+发布前核对签名、对齐、版本、哈希与源码来源；发布后从公开下载地址回读三个附件，校验值均与本地一致。没有重建应用或重跑 Android 测试。M3 本地交付证据见 [验证记录](M3_VALIDATION.md)。

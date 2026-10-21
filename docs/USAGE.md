@@ -4,7 +4,7 @@
 
 ## 安装与升级
 
-安装维护者提供的 APK。正式应用包名为 `com.sh02l.reader`；使用相同签名的后续版本覆盖安装可保留书架、进度、书签和设置。卸载会移除应用私有数据和应用导入文件夹。
+从 [Release 页面](https://github.com/hirasawamugi/SH02LReader/releases/tag/v0.5.0-m3) 下载 APK 并安装。正式应用包名为 `com.sh02l.reader`；使用相同签名的后续版本覆盖安装可保留书架、进度、书签和设置。卸载会移除应用私有数据和应用导入文件夹。
 
 自行编译优先使用独立的 debug 包 `com.sh02l.reader.debug`，可以与正式版并存。新生成的发布签名不能覆盖原签名的正式版，构建方式见 [构建指南](BUILDING.md)。
 

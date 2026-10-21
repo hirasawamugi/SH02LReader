@@ -31,7 +31,9 @@
 
 ## 下载与构建
 
-仓库保存源码和文档。APK 由维护者单独发布，不随源码提交；本机 M3 交付目录为 `dist/v0.5.0-m3/`。GitHub Release 发布流程见 [发布指南](docs/PUBLISHING.md)。
+**[下载 SH02LReader 0.5.0-m3 APK](https://github.com/hirasawamugi/SH02LReader/releases/download/v0.5.0-m3/SH02LReader-v0.5.0-m3.apk)**（M3 里程碑预发布）。更新说明、SHA-256 校验文件和构建来源见 [Release 页面](https://github.com/hirasawamugi/SH02LReader/releases/tag/v0.5.0-m3)。
+
+仓库保存源码和文档，安装包通过 Release 发布；本机 M3 交付目录为 `dist/v0.5.0-m3/`。后续发布流程见 [发布指南](docs/PUBLISHING.md)。
 
 构建环境：**JDK 17 / Gradle 8.7 / Android Gradle Plugin 8.6.1 / Android SDK 35**。现有构建脚本面向 Windows PowerShell，首次配置见 [构建指南](docs/BUILDING.md)。
 

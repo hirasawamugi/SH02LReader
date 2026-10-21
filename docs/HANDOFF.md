@@ -4,6 +4,8 @@
 
 本次 GitHub 准备使用新的 `main` 分支，包含完整 M3 历史和文档整理。原有 `feature/m25-optimization-epub` 及更早分支保留。2026-10-21 已配置 `origin` 为 [hirasawamugi/SH02LReader](https://github.com/hirasawamugi/SH02LReader)，完成首次 `main` 上传并核对远程默认分支与提交；后续在 `main` 继续维护。文档修改只做链接、版本与 Git 内容核对，没有重跑 Android 测试或重建 APK。
 
+2026-10-21 已发布 [v0.5.0-m3 Release](https://github.com/hirasawamugi/SH02LReader/releases/tag/v0.5.0-m3)，为 M3 里程碑预发布，附 APK、SHA-256 校验文件和构建来源记录。复用既有已验证 APK，签名与来源核对通过，三个附件均从公开下载地址回读并比对哈希；首页和使用指南已加入下载入口。
+
 ## M3 已交付（2026-10-21）
 
 已按用户要求完成 [M3 轻量实施计划](superpowers/plans/2026-10-21-m3-lightweight-reading-stability.md)：TXT 连续分页、目录/切章标题置顶、EPUB 图片页稳定显示与链接同步；三个写入边界检查及一次少量响应/内存抽查完成。正式 0.5.0-m3 / code 8 已一次覆盖升级，126404 字节、来源 894672f；66 项 JVM、15 项集中真机检查通过。发布/数据保留证据见 [M3_VALIDATION](M3_VALIDATION.md)，裁定与进度见 [M3_PROGRESS](M3_PROGRESS.md)。
