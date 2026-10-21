@@ -2,6 +2,8 @@
 
 源码仓库和可安装 APK 分开维护。当前版本为 `0.5.0-m3`，正式包名 `com.sh02l.reader`；应用行为未因本轮文档整理发生变化。
 
+源码仓库：[hirasawamugi/SH02LReader](https://github.com/hirasawamugi/SH02LReader)，默认分支 `main`，2026-10-21 已完成首次源码上传。下面保留新仓库连接和后续版本发布的方法。
+
 ## 提交源码
 
 Git 管理应用源码、Gradle Wrapper、构建脚本、工具版本与项目文档。SDK / JDK 安装、缓存、日志、签名和 `dist/` 发布目录由 `.gitignore` 排除。提交前查看实际差异：
@@ -62,4 +64,4 @@ git push -u origin main
 250466cea5fabb21d6ffaa6b4c75ef7378aa1a022b8a16e725d01db3b20b2532
 ```
 
-本文记录发布操作方式，不表示 GitHub 仓库、tag 或 Release 已创建；实际交付证据见 [M3 验证记录](M3_VALIDATION.md)。
+源码仓库已完成首次上传；本文的 tag 与 GitHub Release 部分为后续发布步骤，本次没有创建它们。M3 本地交付证据见 [验证记录](M3_VALIDATION.md)。

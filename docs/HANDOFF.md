@@ -2,7 +2,7 @@
 
 仓库阅读入口已按使用、构建、发布和阶段历史整理，见 [文档索引](README.md)。M3 已交付，后续以实际使用反馈安排定点修正；历史段落中的开发指令和“不推送”等约定属于当时任务，新的仓库整理与上传按用户后续指令处理。
 
-本次 GitHub 准备使用新的 `main` 分支，包含完整 M3 历史和文档整理。原有 `feature/m25-optimization-epub` 及更早分支保留；尚未配置远程仓库或上传。文档修改只做链接、版本与 Git 内容核对，没有重跑 Android 测试或重建 APK。
+本次 GitHub 准备使用新的 `main` 分支，包含完整 M3 历史和文档整理。原有 `feature/m25-optimization-epub` 及更早分支保留。2026-10-21 已配置 `origin` 为 [hirasawamugi/SH02LReader](https://github.com/hirasawamugi/SH02LReader)，完成首次 `main` 上传并核对远程默认分支与提交；后续在 `main` 继续维护。文档修改只做链接、版本与 Git 内容核对，没有重跑 Android 测试或重建 APK。
 
 ## M3 已交付（2026-10-21）
 
