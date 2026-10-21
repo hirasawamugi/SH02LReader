@@ -1,6 +1,6 @@
-# 新阅读器构建工具
+# 构建工具目录
 
-此目录只用于 SH02LReader 的本地构建工具。M0 已安装 Android SDK、Gradle 8.7、API 27 模拟器，并生成新工程独立的签名。
+此目录只用于 SH02LReader 的本地构建工具。新克隆不包含工具安装文件和签名，完整准备步骤见 [构建指南](../docs/BUILDING.md)，签名与交付方式见 [发布指南](../docs/PUBLISHING.md)。
 
 版本与下载校验值见 [TOOLCHAIN.json](TOOLCHAIN.json)。构建使用 JDK 17、AGP 8.6.1、Gradle 8.7、Android API 35 / build-tools 34.0.0；通过脚本设置进程级路径，不修改系统全局 Java，不引用旧工程工具。
 
@@ -18,4 +18,4 @@
 
 新环境安装 SDK 后需具备 `platforms;android-35`、`build-tools;34.0.0` 与 `platform-tools`。运行模拟器测试时另装 `emulator` 和 `system-images;android-27;default;x86`。工具档案按 `TOOLCHAIN.json` 校验；依赖校验文件位于 `gradle/verification-metadata.xml`。
 
-下载缓存、构建中间文件和签名凭据按用途隔离，并从后续源码版本管理中排除。具体工具版本见 [实施计划](../docs/SH02L_READER_PLAN.md)。
+下载缓存、构建中间文件和签名凭据按用途隔离，并从源码版本管理中排除。原始工具选型与阶段历史见 [实施计划](../docs/SH02L_READER_PLAN.md)。

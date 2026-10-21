@@ -13,5 +13,12 @@ tools/jdk*/
 tools/logs/
 dist/
 *.hprof
+*.apk
+*.aab
+*.apks
+*.keystore
+*.jks
+*.p12
+*.pfx
 .idea/
 *.iml

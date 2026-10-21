@@ -1,53 +1,59 @@
 # SH02LReader
 
-面向翻盖按键手机的原生 Android 阅读器，目前在 SH-02L / Android 8.1 上验证。运行时仅使用系统框架。
+为 SH-02L 等翻盖按键手机编写的离线 Android 阅读器，支持 TXT 和 EPUB，以实体按键完成书架管理和日常阅读。
 
-M3 `0.5.0-m3` 已保留数据覆盖安装到 SH-02L：修正 TXT 提前短页，目录/切章标题置顶，改善 EPUB 图片页显示时序，并补齐关键写入边界验证。66 项 JVM 与 15 项集中真机检查通过，原有 3 本书及设置保留。见 [M3 变更说明](docs/M3_RELEASE_NOTES.md) 和 [验证记录](docs/M3_VALIDATION.md)。
+当前版本为 **0.5.0-m3**（2026-10-21），已在 SH-02L / Android 8.1 上完成保留数据的覆盖升级。项目处于可日常使用、继续根据试读反馈修正的阶段。
 
-按键沿用 M2.5：F1 所选书籍或阅读菜单，F2 导入 TXT / EPUB，F3 通用菜单，F4 返回/关闭；输入 F3 确认、F4 取消。可选列表首尾循环，危险操作末置并确认。
+## 功能
 
-书库 schema、文件事务、导入导出、阅读控制与格式引擎已有独立边界。未来新增机型从配置映射逻辑键，新增格式实现统一的文档/阅读界面契约。维护入口见 [代码结构](docs/CODE_STRUCTURE.md)。
+- **按键操作**：方向键翻页，独立书籍/阅读菜单与通用菜单，数字快捷键及屏幕按键帮助。
+- **TXT**：编码识别与纠正、章节目录、连续分页、章节标题置顶、搜索、书签和进度保存。
+- **EPUB**：无 DRM 的可重排 EPUB 2/3，保留 HTML/CSS 排版，支持目录、内部链接及返回、搜索、书签和阅读设置。
+- **阅读外观**：主题、字号、行距、边距、字体、信息栏和应用窗口亮度。
+- **本地书库**：复制/移动导入、封面、改名、原件导出、确认删除、存储占用查看和 TXT 缓存重建。
 
-EPUB 支持无 DRM 的可重排 EPUB 2/3，包括目录、分页、内部链接及返回、搜索、书签、字号/主题/字体与持久化位置；不转成 TXT。固定版式、书内脚本、多媒体和加密资源不在本轮范围。具体边界见 [M2.5 变更说明](docs/M2_5_RELEASE_NOTES.md)，集中验证及交付状态见 [M2.5 验证](docs/M2_5_VALIDATION.md)。
+应用使用 Java、原生 Views、Canvas 和系统 WebView，运行时只依赖 Android 系统框架，无网络书源或常驻服务。
 
-[M3 轻量计划](docs/superpowers/plans/2026-10-21-m3-lightweight-reading-stability.md)已完成约定范围并一次交付。合盖/来电/一般后台恢复和长期试读由用户日常观察，不将本轮结果当作完整规模/长时验收。历史 [M2 验证](docs/M2_VALIDATION.md) 保留，最新交接见 [HANDOFF](docs/HANDOFF.md)。
+## 开始使用
 
-| 路径 | 内容 |
+1. 安装 APK；已有正式版使用相同签名覆盖安装以保留数据。
+2. 按 **F2**，从手机存储、内存卡、系统文档入口或应用导入文件夹选择 TXT / EPUB。
+3. 在书架按确认键打开，**↑/←** 上一页，**↓/→/确认** 下一页，**0** 查看按键帮助。
+
+| 按键 | 主要作用 |
 | --- | --- |
-| [docs/SH02L_READER_PLAN.md](docs/SH02L_READER_PLAN.md) | 技术方案、默认按键、阶段交付与性能目标 |
-| [M3 轻量实施计划](docs/superpowers/plans/2026-10-21-m3-lightweight-reading-stability.md) | 阅读优化、写入中断补漏、精简检查与停止条件（已交付） |
-| [M1.5 实现计划](docs/superpowers/plans/2026-10-18-m1-5-theme-ui.md) | 8 组实现任务与验证证据 |
-| [M1.5 变更说明](docs/M1_5_RELEASE_NOTES.md) | 本轮功能、升级与存储边界 |
-| [M1.5 主题与 UI 设计基线](docs/superpowers/specs/2026-10-18-m1-5-theme-design.md) | 已确认的问答、设备约束、主题/书架/封面/帮助设计与首版样稿 |
-| [docs/SH02L_ACCEPTANCE.md](docs/SH02L_ACCEPTANCE.md) | 自动测试、模拟器与 SH-02L 真机验收清单 |
-| [device/sh02l按键值.txt](device/sh02l按键值.txt) | 独立的 SH-02L 真机按键资料副本 |
-| [tools/README.md](tools/README.md) | 新工程构建工具的目录约定 |
-| [docs/M0_VALIDATION.md](docs/M0_VALIDATION.md) | M0 交付范围、测试证据、性能基线与待验证事项 |
-| [docs/M1_VALIDATION.md](docs/M1_VALIDATION.md) | M1 内容连续性、恢复、规模测试与已知限制 |
-| [docs/TXT_STORAGE.md](docs/TXT_STORAGE.md) | TXT 数据格式、定位、后台任务与故障边界 |
+| F1 | 书架中的所选书籍菜单 / 正文中的阅读菜单 |
+| F2 | 导入图书 |
+| F3 | 通用菜单；输入界面确认 |
+| F4 | 返回或关闭；输入界面取消 |
 
-本目录是 Android 源码工程根目录，包含 `app/`、`reader-core/`、`reader-android/`、`engine-txt/`、`engine-epub/` 和 Gradle Wrapper。运行时仅依赖 Android 系统框架，不引入网络书源或常驻服务。
+完整操作与文件管理说明见 [使用指南](docs/USAGE.md)。
 
-构建与测试（PowerShell，项目根目录）：
+## 下载与构建
+
+仓库保存源码和文档。APK 由维护者单独发布，不随源码提交；本机 M3 交付目录为 `dist/v0.5.0-m3/`。GitHub Release 发布流程见 [发布指南](docs/PUBLISHING.md)。
+
+构建环境：**JDK 17 / Gradle 8.7 / Android Gradle Plugin 8.6.1 / Android SDK 35**。现有构建脚本面向 Windows PowerShell，首次配置见 [构建指南](docs/BUILDING.md)。
 
 ```powershell
-.\scripts\build.ps1 -Task verify
-.\scripts\build.ps1 -Task release
-.\scripts\test-device.ps1 -Serial emulator-5554 -Label api27-emulator
-.\scripts\smoke-release.ps1 -Serial emulator-5554 -Label emulator
-.\scripts\publish-local.ps1
+.\scripts\build.ps1 -Task debug
 ```
 
-`verify` 执行 JVM 测试、Android Lint，并构建 debug 与原生测试 APK。`test-device.ps1` 接受明确的 ADB 设备编号，先检查设备已唤醒，再安装独立的 debug/test 包。正式应用 ID 为 `com.sh02l.reader`，debug 为 `com.sh02l.reader.debug`。
+## 兼容性与当前边界
 
-当前正式产物位于 `dist/v0.5.0-m3/`，附签名、校验值、来源提交、变更说明与验证记录。`test-device.ps1` 可用 `-TestClass` 选择原生测试类或方法；定点修改可用 `build.ps1 -Task focused` 同时重建主 debug 与 test APK。正式用户数据不得清空。诊断记录可在应用“按键诊断 → 保存诊断记录”导出，文件位置在诊断页显示。
+- 最低 Android 8.1（API 27），主要验证设备为 SH-02L，其他机型的按键配置及兼容性需要实测。
+- EPUB 使用设备的系统 WebView；固定版式、DRM、书内脚本和多媒体不在当前支持范围。图片解码仍可能需要等待。
+- M3 已记录 66 项 JVM 和 15 项集中真机检查结果；合盖、来电、一般后台恢复及长期试读继续通过日常使用观察。详见 [M3 验证记录](docs/M3_VALIDATION.md)。
 
-使用：确认打开图书；正文 ↑/← 上一页，↓/→/确认下一页。F1 书籍/阅读菜单，F2 导入，F3 通用菜单，F4 返回。2 目录，1/3 切章，4/6 字号，5 配色，7/9 窗口亮度，8 信息栏，＊设置，＃书签，0 开关帮助。输入 F3 确认、F4 取消；帮助中 ↑↓ 滚动，0/F4 关闭，确认键不退出。根层 F4 无操作，退出位于 F3 菜单并需确认。
+## 项目文档
 
-共享存储：SH-02L（Android 8.1）进入“手机存储 / 内存卡”时会补申请缺少的读写权限；已有读取权限但未获写入权限时仍可复制导入。移动还需来源文件及所在目录可写，提交和完整校验成功后才删除选中的原文件；内存卡的实际权限仍以系统为准。Android 10 及以上不申请旧式写权限，系统文档入口按文件授权判断能否移动。
+| 文档 | 内容 |
+| --- | --- |
+| [文档索引](docs/README.md) | 当前说明、开发资料与历史记录入口 |
+| [使用指南](docs/USAGE.md) | 安装、导入、按键、阅读与数据管理 |
+| [构建指南](docs/BUILDING.md) | 新环境工具链、调试构建与按需验证 |
+| [发布指南](docs/PUBLISHING.md) | 签名、版本来源、本地产物与 GitHub 上传 |
+| [更新记录](CHANGELOG.md) | 已交付版本变化 |
+| [代码结构](docs/CODE_STRUCTURE.md) | 模块边界与维护入口 |
 
-2026-10-19 权限修复包已覆盖安装到 SH-02L，58 项真机原生回归通过，Books 移动与应用导入目录验证、旧 AAReader 和测试残留清理完成；原有书架和 Books 原书保留。详见 [权限修复真机验证](docs/M1_5_STORAGE_PERMISSION_VALIDATION.md)。
-
-应用导入文件夹：正式版为 `/storage/emulated/0/Android/data/com.sh02l.reader/files/import/`（也可使用 `/sdcard/Android/data/com.sh02l.reader/files/import/`）。先打开一次 F2 导入页以创建目录，再通过支持指定目标路径的传输工具放入 TXT、EPUB 或封面图片；放入后在“应用导入文件夹”中手动选择，不会自动加入书架。复制保留来源，移动成功后删除来源。此目录属于应用专属存储，卸载时移除；公共 `Books` 目录可继续用于传书和保留原文件。
-
-设备资料、工具、缓存、文档和发布产物均在本目录内维护。旧工程保留于相邻的 `../AAReader/`；本工程不通过旧工程路径加载运行或构建依赖。
+本目录是独立工程根目录，无需相邻的旧 AAReader 工程。设备按键资料位于 [device](device/README.md)，第三方来源与声明见 [NOTICE.md](NOTICE.md)。仓库目前尚未指定项目许可证。
