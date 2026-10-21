@@ -12,12 +12,12 @@
 | 新文档格式 | `DocumentImportRegistry` 准备原件/元数据；`DocumentEngineRegistry` 组合 DocumentSession 与 ReadingSurface。通用目录/搜索/书签使用 ContentEntry 和 DocumentLocation。 |
 | TXT 分页 | `engine-txt/TxtReadingSurface` 拥有排版队列与 Canvas；`TxtPaginator` 以连续页范围衔接有界读取窗口，最多 16384 单元/布局、3 个布局窗口、1024 个仅含偏移的页范围；`TxtDocumentSession` 复用章节起点做置顶，保留 UTF-16 定位。 |
 | EPUB 排版 | `engine-epub/EpubArchive` 解析归档/目录并限定资源边界，`EpubDocumentSession` 实现定位/搜索，`EpubReadingSurface` 与 `reader.js` 控制系统 HTML/CSS 排版。 |
-
-M3 的 EPUB 初始和重排样式由 EpubReadingSurface 统一生成，经 EpubHtml 放入文档，再由 reader.js 应用同一规则；图片/字体就绪和最终绘制回调确认后才发布 ready/定位。受信脚本的 reader-nav 链接路由仍经当前书籍随机 host、https 与归档路径校验，统一进入 ReadingController 的跳转历史。
 | 数据库 | `app/LibraryDatabase` 维护 schema 和迁移；`BookRepository` 是书库事务门面，负责原件发布、删除与 TXT 重建恢复。 |
 | 文件与传输 | `BookFileStore` 限定私有书目录；`ImportExportController` 执行完整性校验、导入提交和导出 I/O。Activity 仅保留 Android 文件选择/授权生命周期。 |
 | 进度持久化 | `ProgressWriter` 串行合并未开始的保存，连同格式定位保存派生进度；失败保留重试。删除通过 ID 代次使已出队写入失效。 |
 | 外观与帮助 | `ReadingSettings` 保存布局选择，`ReadingStyle` 是引擎接收的不可变快照。`SoftKeyBar/KeyHelpView` 使用当前映射和规则；实际 SH-02L 示意布局由 `HelpLayout` 提供。 |
+
+M3 的 EPUB 初始和重排样式由 EpubReadingSurface 统一生成，经 EpubHtml 放入文档，再由 reader.js 应用同一规则；图片/字体就绪和最终绘制回调确认后才发布 ready/定位。受信脚本的 reader-nav 链接路由仍经当前书籍随机 host、https 与归档路径校验，统一进入 ReadingController 的跳转历史。
 
 `MainActivity` 负责窗口、Android 生命周期和组件装配，不再直接操纵 TXT 页对象。M0 样例导航模型仅保留在测试夹具中，产品只用 `LegacyAppearance` 读取历史外观。
 

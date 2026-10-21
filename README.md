@@ -2,18 +2,20 @@
 
 面向翻盖按键手机的原生 Android 阅读器，目前在 SH-02L / Android 8.1 上验证。运行时仅使用系统框架。
 
-M2.5 `0.4.0-m2.5` 已将代码结构优化、菜单/列表改进和 EPUB 合并交付，并覆盖安装到 SH-02L。F1 只打开所选书籍或阅读菜单，F2 导入 TXT / EPUB，F3 通用菜单，F4 返回/关闭；输入 F3 确认、F4 取消。可选列表首尾循环，危险操作末置并确认；提示和帮助图同步调整。
+M3 `0.5.0-m3` 已保留数据覆盖安装到 SH-02L：修正 TXT 提前短页，目录/切章标题置顶，改善 EPUB 图片页显示时序，并补齐关键写入边界验证。66 项 JVM 与 15 项集中真机检查通过，原有 3 本书及设置保留。见 [M3 变更说明](docs/M3_RELEASE_NOTES.md) 和 [验证记录](docs/M3_VALIDATION.md)。
+
+按键沿用 M2.5：F1 所选书籍或阅读菜单，F2 导入 TXT / EPUB，F3 通用菜单，F4 返回/关闭；输入 F3 确认、F4 取消。可选列表首尾循环，危险操作末置并确认。
 
 书库 schema、文件事务、导入导出、阅读控制与格式引擎已有独立边界。未来新增机型从配置映射逻辑键，新增格式实现统一的文档/阅读界面契约。维护入口见 [代码结构](docs/CODE_STRUCTURE.md)。
 
 EPUB 支持无 DRM 的可重排 EPUB 2/3，包括目录、分页、内部链接及返回、搜索、书签、字号/主题/字体与持久化位置；不转成 TXT。固定版式、书内脚本、多媒体和加密资源不在本轮范围。具体边界见 [M2.5 变更说明](docs/M2_5_RELEASE_NOTES.md)，集中验证及交付状态见 [M2.5 验证](docs/M2_5_VALIDATION.md)。
 
-下一步为 [M3 阅读优化与轻量稳定性补漏](docs/superpowers/plans/2026-10-21-m3-lightweight-reading-stability.md)：TXT 提前短页与目录标题置顶、EPUB 图片页显示、关键写入中断边界及少量性能/内存抽查；目前仅计划。一次整合交付，保留正式书库与 Books 原件；合盖/来电/一般后台恢复和长期试读由用户日常观察，不跑完整规模/长时验收。历史 [M2 验证](docs/M2_VALIDATION.md) 保留，最新交接见 [HANDOFF](docs/HANDOFF.md)。
+[M3 轻量计划](docs/superpowers/plans/2026-10-21-m3-lightweight-reading-stability.md)已完成约定范围并一次交付。合盖/来电/一般后台恢复和长期试读由用户日常观察，不将本轮结果当作完整规模/长时验收。历史 [M2 验证](docs/M2_VALIDATION.md) 保留，最新交接见 [HANDOFF](docs/HANDOFF.md)。
 
 | 路径 | 内容 |
 | --- | --- |
 | [docs/SH02L_READER_PLAN.md](docs/SH02L_READER_PLAN.md) | 技术方案、默认按键、阶段交付与性能目标 |
-| [M3 轻量实施计划](docs/superpowers/plans/2026-10-21-m3-lightweight-reading-stability.md) | 阅读优化、写入中断补漏、精简检查与停止条件（未实施） |
+| [M3 轻量实施计划](docs/superpowers/plans/2026-10-21-m3-lightweight-reading-stability.md) | 阅读优化、写入中断补漏、精简检查与停止条件（已交付） |
 | [M1.5 实现计划](docs/superpowers/plans/2026-10-18-m1-5-theme-ui.md) | 8 组实现任务与验证证据 |
 | [M1.5 变更说明](docs/M1_5_RELEASE_NOTES.md) | 本轮功能、升级与存储边界 |
 | [M1.5 主题与 UI 设计基线](docs/superpowers/specs/2026-10-18-m1-5-theme-design.md) | 已确认的问答、设备约束、主题/书架/封面/帮助设计与首版样稿 |
@@ -38,7 +40,7 @@ EPUB 支持无 DRM 的可重排 EPUB 2/3，包括目录、分页、内部链接�
 
 `verify` 执行 JVM 测试、Android Lint，并构建 debug 与原生测试 APK。`test-device.ps1` 接受明确的 ADB 设备编号，先检查设备已唤醒，再安装独立的 debug/test 包。正式应用 ID 为 `com.sh02l.reader`，debug 为 `com.sh02l.reader.debug`。
 
-当前安装候选位于 `dist/v0.4.0-m2.5/`，附签名、校验值、来源提交、变更说明与验证记录。`test-device.ps1` 可用 `-TestClass` 选择原生测试类或方法，减少重复全量回归；正式用户数据不得清空。诊断记录可在应用“按键诊断 → 保存诊断记录”导出，文件位置在诊断页显示。
+当前正式产物位于 `dist/v0.5.0-m3/`，附签名、校验值、来源提交、变更说明与验证记录。`test-device.ps1` 可用 `-TestClass` 选择原生测试类或方法；定点修改可用 `build.ps1 -Task focused` 同时重建主 debug 与 test APK。正式用户数据不得清空。诊断记录可在应用“按键诊断 → 保存诊断记录”导出，文件位置在诊断页显示。
 
 使用：确认打开图书；正文 ↑/← 上一页，↓/→/确认下一页。F1 书籍/阅读菜单，F2 导入，F3 通用菜单，F4 返回。2 目录，1/3 切章，4/6 字号，5 配色，7/9 窗口亮度，8 信息栏，＊设置，＃书签，0 开关帮助。输入 F3 确认、F4 取消；帮助中 ↑↓ 滚动，0/F4 关闭，确认键不退出。根层 F4 无操作，退出位于 F3 菜单并需确认。
 
