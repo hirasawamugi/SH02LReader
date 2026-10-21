@@ -98,6 +98,8 @@ public final class TxtDocumentSession implements DocumentSession {
     }
 
     public TxtPaginator.Page seek(long offset, TxtPaginator.Spec spec) throws IOException {
+        for (ContentEntry chapter : chapters)
+            if (chapter.location.textOffset() == offset) return paginator.seekStart(offset, spec);
         return paginator.seek(offset, spec);
     }
 

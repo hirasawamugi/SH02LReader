@@ -1,4 +1,4 @@
-param([ValidateSet('verify', 'debug', 'release', 'connected', 'test-apk')][string]$Task = 'verify', [switch]$WriteVerification)
+param([ValidateSet('verify', 'debug', 'release', 'connected', 'test-apk', 'focused')][string]$Task = 'verify', [switch]$WriteVerification)
 $ErrorActionPreference = 'Stop'
 $taskProjectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $taskSavedEnvironment = @{}
@@ -23,6 +23,7 @@ try {
         'verify' { $taskArguments += @(':reader-core:test', ':engine-epub:testDebugUnitTest', ':app:lintDebug', ':app:assembleDebug', ':app:assembleDebugAndroidTest') }
         'debug' { $taskArguments += ':app:assembleDebug' }
         'test-apk' { $taskArguments += ':app:assembleDebugAndroidTest' }
+        'focused' { $taskArguments += @(':app:assembleDebug', ':app:assembleDebugAndroidTest') }
         'release' { $taskArguments += @(':app:lintRelease', ':app:assembleRelease') }
         'connected' { $taskArguments += ':app:connectedDebugAndroidTest' }
     }
