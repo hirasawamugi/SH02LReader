@@ -8,11 +8,12 @@ M2.5 `0.4.0-m2.5` 已将代码结构优化、菜单/列表改进和 EPUB 合并�
 
 EPUB 支持无 DRM 的可重排 EPUB 2/3，包括目录、分页、内部链接及返回、搜索、书签、字号/主题/字体与持久化位置；不转成 TXT。固定版式、书内脚本、多媒体和加密资源不在本轮范围。具体边界见 [M2.5 变更说明](docs/M2_5_RELEASE_NOTES.md)，集中验证及交付状态见 [M2.5 验证](docs/M2_5_VALIDATION.md)。
 
-按用户约定只做一个整合版本，开发检查按风险选择，正式书库与 Books 原件保留。M3 综合性能/耐久验收根据试读情况安排；历史 [M2 验证](docs/M2_VALIDATION.md) 保留，最新交接见 [HANDOFF](docs/HANDOFF.md)。
+下一步为 [M3 阅读优化与轻量稳定性补漏](docs/superpowers/plans/2026-10-21-m3-lightweight-reading-stability.md)：TXT 提前短页与目录标题置顶、EPUB 图片页显示、关键写入中断边界及少量性能/内存抽查；目前仅计划。一次整合交付，保留正式书库与 Books 原件；合盖/来电/一般后台恢复和长期试读由用户日常观察，不跑完整规模/长时验收。历史 [M2 验证](docs/M2_VALIDATION.md) 保留，最新交接见 [HANDOFF](docs/HANDOFF.md)。
 
 | 路径 | 内容 |
 | --- | --- |
 | [docs/SH02L_READER_PLAN.md](docs/SH02L_READER_PLAN.md) | 技术方案、默认按键、阶段交付与性能目标 |
+| [M3 轻量实施计划](docs/superpowers/plans/2026-10-21-m3-lightweight-reading-stability.md) | 阅读优化、写入中断补漏、精简检查与停止条件（未实施） |
 | [M1.5 实现计划](docs/superpowers/plans/2026-10-18-m1-5-theme-ui.md) | 8 组实现任务与验证证据 |
 | [M1.5 变更说明](docs/M1_5_RELEASE_NOTES.md) | 本轮功能、升级与存储边界 |
 | [M1.5 主题与 UI 设计基线](docs/superpowers/specs/2026-10-18-m1-5-theme-design.md) | 已确认的问答、设备约束、主题/书架/封面/帮助设计与首版样稿 |
