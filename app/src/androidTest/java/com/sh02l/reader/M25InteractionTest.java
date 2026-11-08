@@ -12,14 +12,13 @@ public final class M25InteractionTest extends NativeTestBase {
         assertEquals("MENU", kind());
         assertEquals("item:cover", selected());
         press(KeyEvent.KEYCODE_DPAD_UP);
-        assertEquals("item:back", selected());
-        press(KeyEvent.KEYCODE_DPAD_UP);
         assertEquals("item:delete-book", selected());
         press(KeyEvent.KEYCODE_DPAD_DOWN);
-        assertEquals("item:back", selected());
+        assertEquals("item:cover", selected());
         press(KeyEvent.KEYCODE_F3);
         assertEquals("MENU", kind());
         assertEquals("item:appearance", selected());
+        assertNull(find("item:back"));
         assertNull(find("item:delete-book"));
         select("help");
         press(KeyEvent.KEYCODE_DPAD_CENTER);

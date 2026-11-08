@@ -165,31 +165,15 @@ final class CoverDecoder {
             if (bitmap == null) throw new IOException("Image decode failed");
             if (bitmap.getAllocationByteCount() + outputBytes > BUDGET)
                 throw new IOException("Image working budget exceeded");
-            float[][] rotations = {
-                {1, 0, 0, 1},
-                {-1, 0, 0, 1},
-                {-1, 0, 0, -1},
-                {1, 0, 0, -1},
-                {0, 1, 1, 0},
-                {0, -1, 1, 0},
-                {0, -1, -1, 0},
-                {0, 1, -1, 0}
-            };
-            float[] r = rotations[info.orientation - 1];
-            Matrix matrix = new Matrix();
-            matrix.setValues(new float[] {r[0], r[1], 0, r[2], r[3], 0, 0, 0, 1});
-            RectF rect = new RectF(0, 0, bitmap.getWidth(), bitmap.getHeight());
-            matrix.mapRect(rect);
-            matrix.postTranslate(-rect.left, -rect.top);
-            float scale =
-                    fit
-                            ? Math.min(width / rect.width(), height / rect.height())
-                            : Math.max(width / rect.width(), height / rect.height());
-            matrix.postScale(scale, scale);
-            float x = position == 3 ? 0 : position == 4 ? 1 : .5f,
-                    y = position == 1 ? 0 : position == 2 ? 1 : .5f;
-            matrix.postTranslate(
-                    (width - rect.width() * scale) * x, (height - rect.height() * scale) * y);
+            Matrix matrix =
+                    ImageTransform.create(
+                            bitmap.getWidth(),
+                            bitmap.getHeight(),
+                            width,
+                            height,
+                            info.orientation,
+                            fit,
+                            position);
             result = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
             Canvas canvas = new Canvas(result);
             canvas.drawBitmap(

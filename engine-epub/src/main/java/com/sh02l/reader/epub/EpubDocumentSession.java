@@ -18,7 +18,11 @@ public final class EpubDocumentSession implements DocumentSession {
             };
 
     public EpubDocumentSession(File file) throws IOException {
-        archive = new EpubArchive(file);
+        this(new EpubArchive(file));
+    }
+
+    EpubDocumentSession(EpubArchive archive) {
+        this.archive = archive;
     }
 
     public String format() {

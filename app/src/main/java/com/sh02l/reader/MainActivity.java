@@ -610,7 +610,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
                             ? Row.action(item.id, item.title, action.action)
                             : new Row(item.id, item.title, target == null ? null : target.id));
         }
-        screen.selected = screen.rows.size() > 1 ? 1 : 0;
+        screen.selected = 0;
     }
 
     private void settings() {
@@ -1889,7 +1889,17 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
 
     private NavigationListView list(Screen screen) {
         UiStyle style = new UiStyle(this, appearanceFeatures.palette());
-        NavigationListView list = new NavigationListView(this, uiTheme == AppearanceState.DARK);
+        boolean compact =
+                screen.kind.overlay()
+                        && screen.kind != Kind.CONTENTS
+                        && screen.kind != Kind.BOOKMARKS
+                        && screen.kind != Kind.SEARCH_RESULTS;
+        NavigationListView list =
+                new NavigationListView(
+                        this,
+                        uiTheme == AppearanceState.DARK,
+                        appearanceFeatures.palette(),
+                        compact);
         list.setTag("list:" + screen.kind.name());
         list.setDivider(null);
         list.setDividerHeight(dp(6));
@@ -2177,6 +2187,13 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
         resumed = true;
         if (progressWriter != null) progressWriter.retry();
         if (root != null) render();
+    }
+
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW
+                && readingController != null) readingController.trimMemory();
     }
 
     @Override

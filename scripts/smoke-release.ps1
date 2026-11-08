@@ -67,7 +67,7 @@ if($taskTitleNode.Count -gt 0){
     Press-ReaderKey 23
     Wait-ReaderUi '' -Body | Out-Null
     Press-ReaderKey 131
-    Wait-ReaderUi '关闭菜单' | Out-Null
+    Wait-ReaderUi '目录' | Out-Null
     Press-ReaderKey 134
     Press-ReaderKey 3
     Start-Sleep -Milliseconds 600

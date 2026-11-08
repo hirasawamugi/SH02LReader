@@ -99,6 +99,56 @@ public class EpubArchiveTest {
     }
 
     @Test
+    public void recentPackageCanReopenAfterZipClosedAndIsEvictedOnIdentityOrMemoryChange()
+            throws Exception {
+        File source = book(false, false, "http://www.idpf.org/2008/embedding");
+        EpubSessionFactory factory = new EpubSessionFactory();
+        EpubDocumentSession first = factory.open(source, "verified-first");
+        java.util.List<String> spine = first.archive.spine;
+        first.close();
+        try (EpubDocumentSession again = factory.open(source, "verified-first")) {
+            assertSame(spine, again.archive.spine);
+            assertTrue(again.archive.obfuscatedFont("OPS/font.ttf"));
+            assertTrue(again.archive.text(spine.get(0)).contains("中文 Alpha"));
+        }
+        try (EpubDocumentSession another = factory.open(source, "verified-second")) {
+            assertNotSame(spine, another.archive.spine);
+            spine = another.archive.spine;
+        }
+        factory.clear();
+        try (EpubDocumentSession afterTrim = factory.open(source, "verified-second")) {
+            assertNotSame(spine, afterTrim.archive.spine);
+        }
+    }
+
+    @Test
+    public void oversizedPackageMetadataIsNotRetained() throws Exception {
+        File source = File.createTempFile("epub-large-metadata-", ".epub");
+        source.deleteOnExit();
+        StringBuilder order = new StringBuilder();
+        for (int i = 0; i < 6000; i++) order.append("<itemref idref='a'/>");
+        try (ZipOutputStream zip = new ZipOutputStream(new FileOutputStream(source))) {
+            add(
+                    zip,
+                    "META-INF/container.xml",
+                    "<container><rootfile full-path='book.opf'/></container>");
+            add(
+                    zip,
+                    "book.opf",
+                    "<package><metadata><title>Long reading order</title></metadata>"
+                            + "<manifest><item id='a' href='a.xhtml'/></manifest><spine>"
+                            + order
+                            + "</spine></package>");
+            add(zip, "a.xhtml", "<html><body>text</body></html>");
+        }
+        EpubSessionFactory factory = new EpubSessionFactory();
+        try (EpubDocumentSession first = factory.open(source, "large");
+                EpubDocumentSession second = factory.open(source, "large")) {
+            assertNotSame(first.archive.spine, second.archive.spine);
+        }
+    }
+
+    @Test
     public void hostileZipNamesAreRejectedBeforeReading() throws Exception {
         try (EpubArchive archive = new EpubArchive(book(true))) {
             fail("Accepted traversal ZIP");

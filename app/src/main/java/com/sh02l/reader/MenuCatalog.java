@@ -9,7 +9,6 @@ import java.util.List;
 final class MenuCatalog {
     static List<UiAction> items(InputContext context) {
         List<UiAction> result = new ArrayList<>();
-        add(result, "back", "关闭菜单");
         if (context.general) {
             add(result, "appearance", "界面外观");
             add(result, "reading-settings", "正文阅读设置");

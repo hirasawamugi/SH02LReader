@@ -13,14 +13,20 @@ import java.io.IOException;
 
 /** The application boundary that selects a format-specific engine. */
 final class DocumentEngineRegistry {
+    private final EpubSessionFactory epub = new EpubSessionFactory();
+
+    void clearRetainedMetadata() {
+        epub.clear();
+    }
+
     DocumentSession open(BookRepository repository, BookRepository.Book book) throws IOException {
         if ("txt".equals(book.format)) {
+            epub.clear();
             TextImporter.Result index = repository.ensureCache(book.id, null);
             return new TxtDocumentSession(
                     new File(repository.directory(book.id), "text.u16"), index);
         }
-        if ("epub".equals(book.format))
-            return new EpubDocumentSession(repository.original(book.id));
+        if ("epub".equals(book.format)) return epub.open(repository.original(book.id), book.id);
         throw new IOException("Unsupported book format: " + book.format);
     }
 

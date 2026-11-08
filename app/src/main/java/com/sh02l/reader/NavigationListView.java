@@ -4,17 +4,24 @@ import android.content.Context;
 import android.view.View;
 import android.widget.ListView;
 
+import com.sh02l.reader.core.Palette;
+
 /** Keeps visible rows stationary until the selected row crosses a viewport edge. */
 final class NavigationListView extends ListView {
     private boolean restoring;
     private final android.graphics.Paint thumb =
             new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
-    private float density;
+    private final float density;
+    private final boolean compact;
 
-    NavigationListView(Context context, boolean dark) {
+    NavigationListView(Context context, boolean dark, Palette palette, boolean compact) {
         super(context, null, 0, dark ? R.style.ReaderListDark : R.style.ReaderList);
+        this.compact = compact;
         density = getResources().getDisplayMetrics().density;
-        thumb.setColor(dark ? 0xff93b4ce : 0xff727b7c);
+        thumb.setColor(palette.secondary);
+        thumb.setAlpha(160);
+        thumb.setStrokeWidth(1.25f * density);
+        thumb.setStrokeCap(android.graphics.Paint.Cap.ROUND);
         setVerticalScrollBarEnabled(false);
         setPadding(Math.round(6 * density), 0, Math.round(6 * density), 0);
         setScrollBarStyle(View.SCROLLBARS_INSIDE_OVERLAY);
@@ -26,6 +33,12 @@ final class NavigationListView extends ListView {
     @Override
     protected void dispatchDraw(android.graphics.Canvas canvas) {
         super.dispatchDraw(canvas);
+        if (compact) {
+            float x = getWidth() - 3 * density;
+            if (canScrollVertically(-1)) chevron(canvas, x, 4 * density, 1);
+            if (canScrollVertically(1)) chevron(canvas, x, getHeight() - 4 * density, -1);
+            return;
+        }
         int range = computeVerticalScrollRange(), extent = computeVerticalScrollExtent();
         if (extent <= 0 || range <= extent) return;
         float height = getHeight() - getPaddingTop() - getPaddingBottom();
@@ -42,6 +55,12 @@ final class NavigationListView extends ListView {
         // Draw in the symmetric outer gutter, never over the selected card or its text.
         canvas.drawRoundRect(
                 getWidth() - 2 * density, y, getWidth(), y + length, density, density, thumb);
+    }
+
+    private void chevron(android.graphics.Canvas canvas, float x, float y, int direction) {
+        float edge = 2 * density;
+        canvas.drawLine(x - edge, y + direction * edge, x, y, thumb);
+        canvas.drawLine(x, y, x + edge, y + direction * edge, thumb);
     }
 
     void restoreSelection(int position, int offset) {

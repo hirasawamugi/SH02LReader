@@ -125,6 +125,23 @@ public final class M4InteractionTest extends NativeTestBase {
         assertTrue(file.isFile());
         press(KeyEvent.KEYCODE_F4);
         screenshot("m4-background-shelf.png");
+        ui(
+                () ->
+                        assertEquals(
+                                android.graphics.Color.TRANSPARENT,
+                                ((android.graphics.drawable.ColorDrawable)
+                                                find("soft-keys").getBackground())
+                                        .getColor()));
+        press(KeyEvent.KEYCODE_F3);
+        ui(
+                () -> {
+                    ListView list = (ListView) find("list:MENU");
+                    assertEquals(0, list.getSelectedItemPosition());
+                    assertEquals(0, list.getFirstVisiblePosition());
+                    assertNull(find("item:back"));
+                });
+        screenshot("m41-menu.png");
+        press(KeyEvent.KEYCODE_F4);
     }
 
     public void testPureReadingKeepsTxtViewAndAnchor() throws Exception {

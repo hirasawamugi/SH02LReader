@@ -41,7 +41,7 @@ final class SoftKeyBar extends LinearLayout {
         labels[2].setText("0 / F4 关闭");
         labels[3].setText("");
         labels[2].setTextColor(palette.secondary);
-        setBackgroundColor(palette.surface);
+        setBackgroundColor(android.graphics.Color.TRANSPARENT);
     }
 
     void setHints(Map<Key, String> hints, Palette palette) {
@@ -50,6 +50,6 @@ final class SoftKeyBar extends LinearLayout {
             labels[i].setText(hints.get(keys[i]));
             labels[i].setTextColor(palette.secondary);
         }
-        setBackgroundColor(palette.background);
+        setBackgroundColor(android.graphics.Color.TRANSPARENT);
     }
 }

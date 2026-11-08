@@ -392,7 +392,9 @@ final class AppearanceFeatures implements AutoCloseable {
         double factor = Math.min(1, Math.sqrt(518400.0 / ((long) m.widthPixels * m.heightPixels)));
         int w = Math.max(1, (int) (m.widthPixels * factor)),
                 h = Math.max(1, (int) (m.heightPixels * factor));
-        return CoverDecoder.decode(file, w, h, crop && spec.fit == 1, crop ? spec.position : 0);
+        return crop
+                ? BackgroundDecoder.decode(file, w, h, spec.fit == 1, spec.position)
+                : CoverDecoder.decode(file, w, h);
     }
 
     private void prepared(Runnable done) {

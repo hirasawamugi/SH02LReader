@@ -1,4 +1,4 @@
-# 代码维护入口（M4）
+# 代码维护入口（M4.1）
 
 依赖方向：`app → engine-txt / engine-epub → reader-android → reader-core`。引擎不依赖 app；core 不依赖 Android。
 
@@ -30,6 +30,10 @@ M3 的 EPUB 初始和重排样式由 EpubReadingSurface 统一生成，经 EpubH
 Java 统一使用四空格排版。运行 `scripts/format-java.ps1` 格式化本次改动，或用 `-Paths 路径列表 -Check` 检查指定文件。工具固定为 [google-java-format 1.24.0](https://github.com/google/google-java-format/releases/tag/v1.24.0)，脚本校验 SHA-256；下载保存在忽略的 `tools/downloads`，不进入 APK，也不添加运行时依赖。
 
 M4 外观边界：`ThemeSpec` 描述七个语义颜色、书架样式及静态背景参数；`BackgroundStore` 管理原子配置发布和未引用文件清理；`AppearanceFeatures` 管理独立草稿、预览、按键操作和单工作线程图片处理。MainActivity 只装配外观入口、窗口背景和结果回调。已显示的 bitmap 由视图生命周期释放，废弃且未显示的解码结果立即回收。
+
+M4.1 将背景导入交给 `BackgroundDecoder` 分块处理，小封面仍用 `CoverDecoder`；二者共用 `ImageTransform` 的 EXIF/缩放/对齐规则。分块位图用后立即回收，只发布完整结果。已保存的屏幕尺寸图无需重复分块；原子保存与草稿生命周期继续由原模块负责。
+
+`EpubSessionFactory` 只保留最近一本 EPUB 的不可变元信息，保守估算最多 2 MiB；不保留 ZIP/DOM/正文。应用 `DocumentEngineRegistry` 先通过仓库完整校验原件，再用内容摘要匹配复用对象。每次仍新建 ZIP 会话并检查归档条目，关闭时释放句柄。换书、销毁和 `onTrimMemory` 清除复用对象；短临界区避免 UI 等待解析，代次防止回收后旧任务重新填入缓存。该工厂不能接收未经校验的文件标识。
 
 M4 导入先通过 `TextImporter.saveOriginal` 流式复制并同步计算 SHA-256，仓库确认已有原件有效后直接复用记录；仅新文件进入格式准备阶段。`StorageManager` 提供按书缓存清理及逐书结果，原件、定位数据库与来源文件不在缓存删除范围内。
 

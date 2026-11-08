@@ -177,5 +177,10 @@ final class ReadingController {
         close();
         destroyed = true;
         worker.close();
+        trimMemory();
+    }
+
+    void trimMemory() {
+        engines.clearRetainedMetadata();
     }
 }

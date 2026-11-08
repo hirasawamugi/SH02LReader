@@ -6,6 +6,7 @@ import org.xml.sax.InputSource;
 import java.io.*;
 import java.net.URI;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.zip.*;
 
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -13,6 +14,35 @@ import javax.xml.parsers.DocumentBuilderFactory;
 /** Bounded EPUB package model. Never extracts ZIP entries to the filesystem. */
 public final class EpubArchive implements AutoCloseable {
     public static final int CONTENT_LIMIT = 4 * 1024 * 1024, RESOURCE_LIMIT = 8 * 1024 * 1024;
+    private static final Pattern SPACE = Pattern.compile("\\s+");
+    private static final Pattern UNSAFE_PATH = Pattern.compile("[:\\x00-\\x1f]");
+
+    /** Only immutable package data survives a session; no ZIP, DOM, text or image is retained. */
+    static final class Metadata {
+        final List<String> spine;
+        final List<Part> navigation;
+        final Set<String> obfuscatedFonts;
+        final String title, cover;
+        final long retainedBytes;
+
+        Metadata(EpubArchive archive) {
+            spine = archive.spine;
+            navigation = archive.navigation;
+            obfuscatedFonts = Collections.unmodifiableSet(new HashSet<>(archive.obfuscatedFonts));
+            title = archive.title;
+            cover = archive.cover;
+            long bytes = 256 + bytes(title) + bytes(cover);
+            for (String path : spine) bytes += 64 + bytes(path);
+            for (Part part : navigation)
+                bytes += 96 + bytes(part.title) + bytes(part.href) + bytes(part.fragment);
+            for (String path : obfuscatedFonts) bytes += 96 + bytes(path);
+            retainedBytes = bytes;
+        }
+
+        private static long bytes(String value) {
+            return value == null ? 0 : 48L + 2L * value.length();
+        }
+    }
 
     public static final class Resource {
         public final String path, fragment;
@@ -41,6 +71,10 @@ public final class EpubArchive implements AutoCloseable {
     public final String title, cover;
 
     public EpubArchive(File file) throws IOException {
+        this(file, null);
+    }
+
+    EpubArchive(File file, Metadata metadata) throws IOException {
         zip = new ZipFile(file);
         try {
             long total = 0;
@@ -62,6 +96,14 @@ public final class EpubArchive implements AutoCloseable {
                 if (total > 256L * 1024 * 1024)
                     throw new IOException("EPUB expanded content exceeds 256 MiB");
             }
+            if (metadata != null) {
+                spine = metadata.spine;
+                navigation = metadata.navigation;
+                title = metadata.title;
+                cover = metadata.cover;
+                obfuscatedFonts.addAll(metadata.obfuscatedFonts);
+                return;
+            }
             Document container = xml(read("META-INF/container.xml", 1024 * 1024));
             NodeList roots = container.getElementsByTagNameNS("*", "rootfile");
             if (roots.getLength() == 0) throw new IOException("Missing EPUB package");
@@ -72,9 +114,9 @@ public final class EpubArchive implements AutoCloseable {
             Map<String, String> items = new HashMap<>();
             Set<String> fontItems = new HashSet<>();
             String nav = null, ncx = null, coverPath = null, coverId = null;
-            NodeList metadata = packageDoc.getElementsByTagNameNS("*", "meta");
-            for (int i = 0; i < metadata.getLength(); i++) {
-                Element meta = (Element) metadata.item(i);
+            NodeList metaNodes = packageDoc.getElementsByTagNameNS("*", "meta");
+            for (int i = 0; i < metaNodes.getLength(); i++) {
+                Element meta = (Element) metaNodes.item(i);
                 if ("cover".equals(meta.getAttribute("name")))
                     coverId = meta.getAttribute("content");
                 if ("rendition:layout".equals(meta.getAttribute("property"))
@@ -91,7 +133,7 @@ public final class EpubArchive implements AutoCloseable {
                         || media.contains("font")
                         || media.equals("application/vnd.ms-opentype")) fontItems.add(path);
                 List<String> properties =
-                        Arrays.asList(item.getAttribute("properties").split("\\s+"));
+                        Arrays.asList(SPACE.split(item.getAttribute("properties")));
                 if (properties.contains("nav")) nav = path;
                 if (properties.contains("cover-image")) coverPath = path;
                 if ("application/x-dtbncx+xml".equals(item.getAttribute("media-type"))) ncx = path;
@@ -233,7 +275,7 @@ public final class EpubArchive implements AutoCloseable {
         try {
             Resource target = resolve(base, href);
             if (entries.containsKey(target.path) && result.size() < 10000)
-                result.add(new Part(title.trim().replaceAll("\\s+", " "), target));
+                result.add(new Part(SPACE.matcher(title.trim()).replaceAll(" "), target));
         } catch (IOException ignored) {
         }
     }
@@ -247,9 +289,7 @@ public final class EpubArchive implements AutoCloseable {
                 throw new IOException("External EPUB resource");
             String path = reference.getPath();
             if (path == null || path.isEmpty()) return new Resource(base, reference.getFragment());
-            if (path.startsWith("/")
-                    || path.contains("\\")
-                    || path.matches("(?s).*[:\\x00-\\x1f].*"))
+            if (path.startsWith("/") || path.contains("\\") || UNSAFE_PATH.matcher(path).find())
                 throw new IOException("Unsafe EPUB path");
             String joined =
                     (base.contains("/") ? base.substring(0, base.lastIndexOf('/') + 1) : "") + path;
