@@ -42,4 +42,6 @@
 
 工作区删除 16 个本轮参考原图与中间 UI/诊断文件，共 2,643,422 字节，保留精简的升级前后摘要、测试结果、4 张真机截图和交付记录。此前 M4 清理被自动审批阻止的旧目录没有重试处理，不计入本轮清理。
 
-本地整合交付目录 `dist/v0.6.3-m4.3/`，未推送 GitHub。原始验证日志位于忽略的 `tools/logs/m43/`、`instrumentation-m43-*.txt` 和 `release-smoke-m25-m43.json`。
+本地整合交付目录 `dist/v0.6.3-m4.3/`。原始验证日志位于忽略的 `tools/logs/m43/`、`instrumentation-m43-*.txt` 和 `release-smoke-m25-m43.json`。
+
+2026-11-08 后续按用户要求，将 M4–M4.3 的 8 个提交快进合入并推送到 `main`，发布标签 `v0.6.3-m4.3` 指向 `d98b506`。[GitHub 试用预发布](https://github.com/hirasawamugi/SH02LReader/releases/tag/v0.6.3-m4.3)包含 APK、`SHA256SUMS.txt` 和 `build-info.json`，三个公开下载附件的 SHA-256 均与本地产物一致。发布沿用已验证 APK，没有重建应用或重复运行设备测试；之后的下载入口文档更新不改变编译来源。

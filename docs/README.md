@@ -1,6 +1,6 @@
 # 文档索引
 
-当前本地版本：**M4.3 / 0.6.3-m4.3 / versionCode 12**。M4 已按批准方案实施 01–04，修补版持续按反馈调整；05、06 后续推进，其余暂缓。
+当前版本：**M4.3 / 0.6.3-m4.3 / versionCode 12**，已发布 [GitHub 试用版](https://github.com/hirasawamugi/SH02LReader/releases/tag/v0.6.3-m4.3)。M4 已按批准方案实施 01–04，修补版持续按反馈调整；05、06 后续推进，其余暂缓。
 
 [M4.3 说明](M4_3_RELEASE_NOTES.md) · [M4.3 验证](M4_3_VALIDATION.md) · [项目约定](../AGENTS.md)。
 

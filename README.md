@@ -2,7 +2,7 @@
 
 为 SH-02L 等翻盖按键手机编写的离线 Android 阅读器，支持 TXT 和 EPUB，以实体按键完成书架管理和日常阅读。
 
-当前本地试用版本为 **M4.3 / 0.6.3-m4.3**（2026-11-08），面向 SH-02L / Android 8.1。项目处于可日常使用、继续根据试读反馈修正的阶段；GitHub 已发布版本仍为 M3。
+当前试用版本为 **M4.3 / 0.6.3-m4.3**（2026-11-08），面向 SH-02L / Android 8.1。项目处于可日常使用、继续根据试读反馈修正的阶段；源码和整合试用 APK 已发布到 GitHub。
 
 ## 功能
 
@@ -33,11 +33,13 @@ M4 中，列表左右翻页，目录 F1 输入序号，阅读时 8 切换纯阅�
 
 ## 下载与构建
 
-**M4.3 修补试用版：0.6.3-m4.3 / code 12**，本机安装包位于 `dist/v0.6.3-m4.3/`，本轮未上传 GitHub。两套主题更新与验证见 [M4.3 说明](docs/M4_3_RELEASE_NOTES.md) 和 [验证记录](docs/M4_3_VALIDATION.md)。M4 的整体操作见 [M4 说明](docs/M4_RELEASE_NOTES.md)。
+**[下载 M4.3 APK](https://github.com/hirasawamugi/SH02LReader/releases/download/v0.6.3-m4.3/SH02LReader-v0.6.3-m4.3.apk)**（`0.6.3-m4.3` / code 12，试用预发布）。此版本整合 M4–M4.3 的功能与修补，沿用正式包名和签名，可覆盖已有正式版并保留数据。[Release 页面](https://github.com/hirasawamugi/SH02LReader/releases/tag/v0.6.3-m4.3)附更新说明、SHA-256 校验文件和构建来源。
+
+两套主题更新与验证见 [M4.3 说明](docs/M4_3_RELEASE_NOTES.md) 和 [验证记录](docs/M4_3_VALIDATION.md)。M4 的整体操作见 [M4 说明](docs/M4_RELEASE_NOTES.md)。
 
 历史已发布版本：**[下载 SH02LReader 0.5.0-m3 APK](https://github.com/hirasawamugi/SH02LReader/releases/download/v0.5.0-m3/SH02LReader-v0.5.0-m3.apk)**（M3 里程碑预发布）。更新说明、SHA-256 校验文件和构建来源见 [Release 页面](https://github.com/hirasawamugi/SH02LReader/releases/tag/v0.5.0-m3)。
 
-仓库保存源码和文档，安装包通过 Release 发布；本机 M4 交付目录为 `dist/v0.6.0-m4/`。后续发布流程见 [发布指南](docs/PUBLISHING.md)。
+仓库保存源码和文档，安装包通过 Release 发布；本机 M4.3 交付目录为 `dist/v0.6.3-m4.3/`。后续发布流程见 [发布指南](docs/PUBLISHING.md)。
 
 构建环境：**JDK 17 / Gradle 8.7 / Android Gradle Plugin 8.6.1 / Android SDK 35**。现有构建脚本面向 Windows PowerShell，首次配置见 [构建指南](docs/BUILDING.md)。
 
