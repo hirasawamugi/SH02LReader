@@ -103,6 +103,10 @@ public final class TxtDocumentSession implements DocumentSession {
         return paginator.seek(offset, spec);
     }
 
+    public TxtPaginator.Page reflow(long offset, TxtPaginator.Spec spec) throws IOException {
+        return paginator.seekStart(offset, spec);
+    }
+
     public TxtPaginator.Page move(TxtPaginator.Page page, int direction) throws IOException {
         return paginator.move(page, direction);
     }

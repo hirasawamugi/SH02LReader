@@ -63,8 +63,10 @@ public final class TxtReadingSurface implements ReadingSurface {
 
     public void apply(ReadingStyle next) {
         if (next.equals(style)) return;
+        boolean colorsOnly = next.sameLayout(style);
         style = next;
-        layout();
+        if (colorsOnly) view.invalidate();
+        else layout();
     }
 
     public void move(int direction) {
@@ -88,7 +90,8 @@ public final class TxtReadingSurface implements ReadingSurface {
                         style.foreground,
                         style.typeface);
         final long target = position;
-        submit(() -> document.seek(target, spec));
+        final boolean keepStart = page != null && page.start == target;
+        submit(() -> keepStart ? document.reflow(target, spec) : document.seek(target, spec));
     }
 
     private interface LayoutWork {
@@ -178,6 +181,7 @@ public final class TxtReadingSurface implements ReadingSurface {
             int saved = canvas.save();
             canvas.clipRect(0, 0, getWidth(), Math.min(getHeight(), page.bottom - page.top));
             canvas.translate(0, -page.top);
+            if (style != null) page.layout.getPaint().setColor(style.foreground);
             page.layout.draw(canvas);
             canvas.restoreToCount(saved);
         }

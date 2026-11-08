@@ -32,6 +32,11 @@ final class NavigationState {
         STORAGE,
         STORAGE_BOOKS,
         IMPORT_CLEANUP,
+        THEME_EDITOR,
+        THEME_COLORS,
+        THEME_FILES,
+        THEME_PREVIEW,
+        CACHE_BOOKS,
         CONFIRM;
 
         boolean overlay() {
@@ -87,6 +92,7 @@ final class NavigationState {
         final String targetBookId;
         int selected, group, selectionTop, page;
         boolean hasSelectionTop, helpReading, busy, generalMenu, hasCover;
+        Runnable primary;
         String title;
         File directory;
         String[] helpFunctions;

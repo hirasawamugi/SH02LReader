@@ -28,6 +28,15 @@ public final class ReadingStyle {
         this.fontPath = path;
     }
 
+    public boolean sameLayout(ReadingStyle s) {
+        return s != null
+                && textSize == s.textSize
+                && lineExtra == s.lineExtra
+                && Objects.equals(typeface, s.typeface)
+                && Objects.equals(fontFamily, s.fontFamily)
+                && Objects.equals(fontPath, s.fontPath);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (!(o instanceof ReadingStyle)) return false;

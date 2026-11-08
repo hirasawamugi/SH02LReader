@@ -10,17 +10,15 @@ import java.io.*;
 public final class VisualVerificationTest extends NativeTestBase {
     private void appearance(int theme, int style) {
         press(KeyEvent.KEYCODE_F3);
-        select("settings");
-        press(KeyEvent.KEYCODE_DPAD_CENTER);
         select("appearance");
         press(KeyEvent.KEYCODE_DPAD_CENTER);
         int current = activity.getSharedPreferences("reader", 0).getInt("ui_theme", 0);
-        for (int i = 0; i < (theme - current + 3) % 3; i++) press(KeyEvent.KEYCODE_DPAD_RIGHT);
-        select("shelf-style");
+        for (int i = 0; i < (theme - current + 5) % 5; i++) press(KeyEvent.KEYCODE_DPAD_RIGHT);
+        select("theme-style");
         current = activity.getSharedPreferences("reader", 0).getInt("shelf_style", 1);
         for (int i = 0; i < (style - current + 3) % 3; i++) press(KeyEvent.KEYCODE_DPAD_RIGHT);
-        press(KeyEvent.KEYCODE_F4);
-        press(KeyEvent.KEYCODE_F4);
+        press(KeyEvent.KEYCODE_F3);
+        await(() -> "MENU".equals(kind()), 10000);
         press(KeyEvent.KEYCODE_F4);
     }
 

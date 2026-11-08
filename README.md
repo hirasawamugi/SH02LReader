@@ -27,13 +27,17 @@
 | F3 | 通用菜单；输入界面确认 |
 | F4 | 返回或关闭；输入界面取消 |
 
+M4 中，列表左右翻页，目录 F1 输入序号，阅读时 8 切换纯阅读。外观编辑 F3 保存、F4 放弃。
+
 完整操作与文件管理说明见 [使用指南](docs/USAGE.md)。
 
 ## 下载与构建
 
-**[下载 SH02LReader 0.5.0-m3 APK](https://github.com/hirasawamugi/SH02LReader/releases/download/v0.5.0-m3/SH02LReader-v0.5.0-m3.apk)**（M3 里程碑预发布）。更新说明、SHA-256 校验文件和构建来源见 [Release 页面](https://github.com/hirasawamugi/SH02LReader/releases/tag/v0.5.0-m3)。
+**M4 整合试用版：0.6.0-m4 / code 9**，本机安装包位于 `dist/v0.6.0-m4/`，本轮未上传 GitHub。操作变化见 [M4 说明](docs/M4_RELEASE_NOTES.md)。
 
-仓库保存源码和文档，安装包通过 Release 发布；本机 M3 交付目录为 `dist/v0.5.0-m3/`。后续发布流程见 [发布指南](docs/PUBLISHING.md)。
+历史已发布版本：**[下载 SH02LReader 0.5.0-m3 APK](https://github.com/hirasawamugi/SH02LReader/releases/download/v0.5.0-m3/SH02LReader-v0.5.0-m3.apk)**（M3 里程碑预发布）。更新说明、SHA-256 校验文件和构建来源见 [Release 页面](https://github.com/hirasawamugi/SH02LReader/releases/tag/v0.5.0-m3)。
+
+仓库保存源码和文档，安装包通过 Release 发布；本机 M4 交付目录为 `dist/v0.6.0-m4/`。后续发布流程见 [发布指南](docs/PUBLISHING.md)。
 
 构建环境：**JDK 17 / Gradle 8.7 / Android Gradle Plugin 8.6.1 / Android SDK 35**。现有构建脚本面向 Windows PowerShell，首次配置见 [构建指南](docs/BUILDING.md)。
 

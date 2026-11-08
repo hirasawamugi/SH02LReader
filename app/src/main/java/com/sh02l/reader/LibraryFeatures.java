@@ -164,6 +164,10 @@ final class LibraryFeatures {
                             new Row(
                                     "noop",
                                     "自定义字体：" + size(new FontStore(host.activity()).bytes())));
+                    screen.rows.add(
+                            new Row(
+                                    "noop",
+                                    "外观资源：" + size(new BackgroundStore(host.activity()).bytes())));
                     screen.rows.add(new Row("noop", "导入文件夹：" + size(snapshot.imports)));
                     screen.rows.add(new Row("noop", "可用空间：" + size(snapshot.free)));
                     screen.rows.add(
@@ -172,34 +176,76 @@ final class LibraryFeatures {
                                     "按占用管理 / 批量删除图书",
                                     () -> storageBooks(snapshot)));
                     screen.rows.add(
-                            Row.action(
-                                    "clear-cache",
-                                    "清理可重建正文缓存",
-                                    () ->
-                                            confirm(
-                                                    "清理正文缓存",
-                                                    "保留原件、进度、书签和当前阅读书",
-                                                    () -> {
-                                                        final String active =
-                                                                host.reading() == null
-                                                                        ? ""
-                                                                        : host.reading().book.id;
-                                                        host.task(
-                                                                "核验原件并清理缓存…",
-                                                                () ->
-                                                                        host.storage()
-                                                                                .clearCaches(
-                                                                                        active),
-                                                                freed ->
-                                                                        storageUpdated(
-                                                                                "已释放 "
-                                                                                        + size(
-                                                                                                freed)));
-                                                    })));
+                            Row.action("clear-cache", "选择图书清理正文缓存", () -> cacheBooks(snapshot)));
                     screen.rows.add(Row.action("manage-import", "选择并清理导入文件夹", this::importFiles));
                     screen.rows.add(new Row("back", "返回"));
                     host.render();
                 });
+    }
+
+    private void cacheBooks(StorageManager.Snapshot snapshot) {
+        Screen screen = new Screen(Kind.CACHE_BOOKS, "正文缓存 · 确认勾选 / F3 处理");
+        fillCaches(screen, snapshot);
+        host.push(screen);
+        host.render();
+    }
+
+    private void fillCaches(Screen screen, StorageManager.Snapshot snapshot) {
+        screen.rows.clear();
+        String active = host.reading() == null ? "" : host.reading().book.id;
+        for (StorageManager.BookUsage usage : snapshot.books) {
+            if (usage.cacheBytes == 0) continue;
+            String id = usage.book.id;
+            if (id.equals(active)) {
+                screen.rows.add(new Row("noop", usage.book.title + " · 阅读中，保留"));
+                continue;
+            }
+            screen.rows.add(
+                    Row.action(
+                            "cache-" + id,
+                            (screen.checked.contains(id) ? "☑ " : "☐ ")
+                                    + usage.book.title
+                                    + " · "
+                                    + size(usage.cacheBytes),
+                            () -> {
+                                if (!screen.checked.remove(id)) screen.checked.add(id);
+                                fillCaches(screen, snapshot);
+                                host.render();
+                            }));
+        }
+        screen.primary =
+                () -> {
+                    if (screen.checked.isEmpty()) {
+                        host.notice("请先选择图书");
+                        return;
+                    }
+                    List<String> selected = new ArrayList<>(screen.checked);
+                    confirm(
+                            "清理 " + selected.size() + " 本正文缓存",
+                            "保留原件、进度及书签，下次打开时重建",
+                            () -> {
+                                String current =
+                                        host.reading() == null ? "" : host.reading().book.id;
+                                host.task(
+                                        "核验原件并清理所选缓存…",
+                                        () -> host.storage().clearCaches(selected, current),
+                                        result ->
+                                                storageUpdated(
+                                                        "已清理 "
+                                                                + result.cleared
+                                                                + " 本 · "
+                                                                + size(result.bytes)
+                                                                + "；跳过 "
+                                                                + result.skipped
+                                                                + "，失败 "
+                                                                + result.failed));
+                            });
+                };
+        if (screen.rows.isEmpty()) screen.rows.add(new Row("noop", "没有可清理的正文缓存"));
+        screen.rows.add(
+                Row.action(
+                        "clear-selected", "清理所选（" + screen.checked.size() + "）", screen.primary));
+        screen.rows.add(new Row("back", "返回"));
     }
 
     private void storageBooks(StorageManager.Snapshot snapshot) {
@@ -242,6 +288,7 @@ final class LibraryFeatures {
                                     "删除私有原件、缓存、封面及书签；保留来源",
                                     () -> deleteBooks(ids));
                         }));
+        screen.primary = screen.rows.get(screen.rows.size() - 1).action;
         screen.rows.add(new Row("back", "返回"));
     }
 
@@ -316,6 +363,7 @@ final class LibraryFeatures {
                                                 freed -> storageUpdated("导入目录已释放 " + size(freed)));
                                     });
                         }));
+        screen.primary = screen.rows.get(screen.rows.size() - 1).action;
         screen.rows.add(new Row("back", "返回"));
         host.render();
     }

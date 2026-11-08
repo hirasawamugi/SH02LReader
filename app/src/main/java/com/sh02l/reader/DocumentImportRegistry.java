@@ -40,10 +40,29 @@ final class DocumentImportRegistry {
         return n.endsWith(".txt") || n.endsWith(".epub");
     }
 
+    static TextImporter.Saved saveOriginal(
+            InputStream source, File staging, TextImporter.Observer observer) throws IOException {
+        try (BufferedInputStream input = new BufferedInputStream(source)) {
+            input.mark(4);
+            int a = input.read(), b = input.read(), c = input.read(), d = input.read();
+            input.reset();
+            long limit =
+                    a == 'P' && b == 'K' && c == 3 && d == 4 ? 256L * 1024 * 1024 : Long.MAX_VALUE;
+            return TextImporter.saveOriginal(input, staging, observer, limit);
+        }
+    }
+
     static Prepared prepare(
             InputStream source, String name, File staging, TextImporter.Observer observer)
             throws IOException {
-        try (BufferedInputStream input = new BufferedInputStream(source)) {
+        return prepareSaved(saveOriginal(source, staging, observer), name, staging, observer);
+    }
+
+    static Prepared prepareSaved(
+            TextImporter.Saved saved, String name, File staging, TextImporter.Observer observer)
+            throws IOException {
+        File original = new File(staging, "original.bin");
+        try (BufferedInputStream input = new BufferedInputStream(new FileInputStream(original))) {
             input.mark(4);
             byte[] magic = new byte[4];
             int count = 0;
@@ -63,7 +82,8 @@ final class DocumentImportRegistry {
                     || magic[1] != 'K'
                     || magic[2] != 3
                     || magic[3] != 4) {
-                TextImporter.Result text = TextImporter.prepare(input, staging, null, observer);
+                TextImporter.Result text =
+                        TextImporter.prepareSaved(staging, saved, null, observer);
                 TxtCacheFingerprint.write(staging, observer);
                 return new Prepared(
                         text.id,
@@ -75,25 +95,8 @@ final class DocumentImportRegistry {
                         DocumentLocation.txt(0),
                         null);
             }
-            if (!staging.mkdirs()) throw new IOException("Cannot create EPUB staging");
-            File original = new File(staging, "original.bin");
-            long total = 0;
-            try (InputStream in = input;
-                    FileOutputStream out = new FileOutputStream(original)) {
-                byte[] bytes = new byte[16384];
-                int n;
-                while ((n = in.read(bytes)) != -1) {
-                    TextImporter.check(observer);
-                    total += n;
-                    if (total > 256L * 1024 * 1024)
-                        throw new IOException("EPUB source exceeds 256 MiB");
-                    if (observer != null) observer.beforeWrite(n);
-                    out.write(bytes, 0, n);
-                    if (observer != null) observer.progress("保存 EPUB 原件", total);
-                }
-                out.getFD().sync();
-            }
-            String id = CoverStore.hash(original, observer);
+            String id = saved.id;
+            long total = saved.bytes;
             try (EpubArchive archive = new EpubArchive(original)) {
                 byte[] cover = null;
                 if (archive.cover != null)

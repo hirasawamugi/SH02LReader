@@ -50,7 +50,7 @@ public final class KeyHelpTest extends NativeTestBase {
         View reader = find("reading-content");
         int width = reader.getWidth(), height = reader.getHeight();
         press(KeyEvent.KEYCODE_F3);
-        select("settings");
+        select("appearance");
         String selected = selected();
         press(KeyEvent.KEYCODE_0);
         assertEquals("HELP", kind());

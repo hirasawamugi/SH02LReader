@@ -1,4 +1,4 @@
-# 代码维护入口（M3）
+# 代码维护入口（M4）
 
 依赖方向：`app → engine-txt / engine-epub → reader-android → reader-core`。引擎不依赖 app；core 不依赖 Android。
 
@@ -28,3 +28,9 @@ M3 的 EPUB 初始和重排样式由 EpubReadingSurface 统一生成，经 EpubH
 验证按修改风险选择：公共键码/选择/定位用 JVM；数据库、Android 输入和实际排版用独立 debug 包。发布脚本同时检查所有编译模块的源码来源。正式应用数据和公共 Books 原件不得为测试清空。
 
 Java 统一使用四空格排版。运行 `scripts/format-java.ps1` 格式化本次改动，或用 `-Paths 路径列表 -Check` 检查指定文件。工具固定为 [google-java-format 1.24.0](https://github.com/google/google-java-format/releases/tag/v1.24.0)，脚本校验 SHA-256；下载保存在忽略的 `tools/downloads`，不进入 APK，也不添加运行时依赖。
+
+M4 外观边界：`ThemeSpec` 描述七个语义颜色、书架样式及静态背景参数；`BackgroundStore` 管理原子配置发布和未引用文件清理；`AppearanceFeatures` 管理独立草稿、预览、按键操作和单工作线程图片处理。MainActivity 只装配外观入口、窗口背景和结果回调。已显示的 bitmap 由视图生命周期释放，废弃且未显示的解码结果立即回收。
+
+M4 导入先通过 `TextImporter.saveOriginal` 流式复制并同步计算 SHA-256，仓库确认已有原件有效后直接复用记录；仅新文件进入格式准备阶段。`StorageManager` 提供按书缓存清理及逐书结果，原件、定位数据库与来源文件不在缓存删除范围内。
+
+`ReadingStyle.sameLayout` 区分颜色与几何变化。TXT 仅换色更新绘制，重排复用当前首字符；EPUB 仅换色更新样式，不重新收集正文，连续重排沿用同一逻辑锚点，翻页或主动跳转后重置。纯阅读改变正文周边控件可见性，保留同一个 Canvas / WebView；帮助与菜单覆盖其上，不改变正文视口。

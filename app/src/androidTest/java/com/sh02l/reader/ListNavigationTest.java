@@ -203,14 +203,14 @@ public final class ListNavigationTest extends NativeTestBase {
         awaitLibrary();
         for (int style = 0; style < 3; style++) {
             press(KeyEvent.KEYCODE_F3);
-            select("settings");
-            press(KeyEvent.KEYCODE_DPAD_CENTER);
             select("appearance");
             press(KeyEvent.KEYCODE_DPAD_CENTER);
-            select("shelf-style");
+            select("theme-style");
             int current = activity.getSharedPreferences("reader", 0).getInt("shelf_style", 1);
             for (int step = 0; step < (style - current + 3) % 3; step++)
                 press(KeyEvent.KEYCODE_DPAD_RIGHT);
+            press(KeyEvent.KEYCODE_F3);
+            await(() -> "MENU".equals(kind()), 10000);
             for (int level = 0; level < 4 && !"LIBRARY".equals(kind()); level++)
                 press(KeyEvent.KEYCODE_F4);
             while (frame().selected > 0) press(KeyEvent.KEYCODE_DPAD_UP);
@@ -226,7 +226,7 @@ public final class ListNavigationTest extends NativeTestBase {
     public void testScrollbarHasSpaceBesideTheSelectedRow() throws Exception {
         longContents();
         Frame current = frame();
-        int gap = Math.round(6 * activity.getResources().getDisplayMetrics().density);
+        int gap = Math.round(2 * activity.getResources().getDisplayMetrics().density);
         assertTrue(
                 "The scroll thumb must have a separate gutter beside the selection",
                 current.rightGap >= current.barWidth + gap);

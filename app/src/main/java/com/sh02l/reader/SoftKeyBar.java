@@ -36,6 +36,14 @@ final class SoftKeyBar extends LinearLayout {
         }
     }
 
+    void setHelp(Palette palette) {
+        getChildAt(0).setVisibility(GONE);
+        labels[2].setText("0 / F4 关闭");
+        labels[3].setText("");
+        labels[2].setTextColor(palette.secondary);
+        setBackgroundColor(palette.surface);
+    }
+
     void setHints(Map<Key, String> hints, Palette palette) {
         Key[] keys = {Key.F1, Key.F2, Key.F3, Key.F4};
         for (int i = 0; i < 4; i++) {

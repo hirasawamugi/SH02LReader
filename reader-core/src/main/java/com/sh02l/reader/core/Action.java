@@ -26,7 +26,10 @@ public enum Action {
     THEME(false),
     DIMMER(true),
     BRIGHTER(true),
-    INFO(false);
+    INFO(false),
+    PURE_READING(false),
+    PRIMARY(false),
+    CONTENTS_JUMP(false);
 
     public final boolean repeatable;
 

@@ -5,20 +5,20 @@ import android.view.*;
 public final class AppearanceNavigationTest extends NativeTestBase {
     public void testSettingsReturnsToSameParentItem() {
         press(KeyEvent.KEYCODE_F3);
-        select("settings");
+        select("appearance");
         press(KeyEvent.KEYCODE_DPAD_CENTER);
-        assertNotNull("Categorized settings are required", find("item:appearance"));
-        press(KeyEvent.KEYCODE_DPAD_CENTER);
-        select("ui-theme");
+        ThemeSpec original = new BackgroundStore(activity).load(0, 0);
+        select("theme-preset");
         press(KeyEvent.KEYCODE_DPAD_RIGHT);
         press(KeyEvent.KEYCODE_F4);
         assertEquals("item:appearance", selected());
+        assertEquals(original.preset, new BackgroundStore(activity).load(0, 0).preset);
         press(KeyEvent.KEYCODE_DPAD_CENTER);
-        assertTrue(
-                ((android.widget.TextView) find("item:ui-theme"))
-                        .getText()
-                        .toString()
-                        .contains("白色"));
+        press(KeyEvent.KEYCODE_DPAD_RIGHT);
+        press(KeyEvent.KEYCODE_F3);
+        await(() -> "MENU".equals(kind()), 10000);
+        assertEquals("item:appearance", selected());
+        assertEquals((original.preset + 1) % 5, new BackgroundStore(activity).load(0, 0).preset);
     }
 
     public void testUiThemeLeavesReaderAnchorAndViewIntact() throws Exception {
@@ -42,7 +42,7 @@ public final class AppearanceNavigationTest extends NativeTestBase {
 
     public void testFontScaleKeepsFooterClear() {
         press(KeyEvent.KEYCODE_F3);
-        select("settings");
+        select("reading-settings");
         press(KeyEvent.KEYCODE_DPAD_CENTER);
         View footer = find("soft-keys");
         assertNotNull("Footer must have its own layout space", footer);

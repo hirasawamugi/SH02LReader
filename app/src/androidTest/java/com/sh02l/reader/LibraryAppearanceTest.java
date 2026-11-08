@@ -49,12 +49,12 @@ public final class LibraryAppearanceTest extends NativeTestBase {
         assertEquals("item:book", initial.getTag());
         String before = String.valueOf(initial.getContentDescription());
         press(KeyEvent.KEYCODE_F3);
-        select("settings");
-        press(KeyEvent.KEYCODE_DPAD_CENTER);
         select("appearance");
         press(KeyEvent.KEYCODE_DPAD_CENTER);
-        select("shelf-style");
+        select("theme-style");
         press(KeyEvent.KEYCODE_DPAD_RIGHT);
+        press(KeyEvent.KEYCODE_F3);
+        await(() -> "MENU".equals(kind()), 10000);
         for (int i = 0; i < 4 && !"LIBRARY".equals(kind()); i++) press(KeyEvent.KEYCODE_F4);
         View changed = awaitSelectedRow();
         assertEquals(before, String.valueOf(changed.getContentDescription()));

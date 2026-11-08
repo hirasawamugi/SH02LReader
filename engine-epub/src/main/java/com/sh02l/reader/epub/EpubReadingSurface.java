@@ -160,11 +160,23 @@ public final class EpubReadingSurface implements ReadingSurface {
 
     public void apply(ReadingStyle next) {
         if (next.equals(style)) return;
+        boolean colorsOnly = next.sameLayout(style);
         style = next;
-        if (pageLoaded) reflow(wanted);
+        if (pageLoaded && colorsOnly) {
+            view.setBackgroundColor(style.background);
+            view.evaluateJavascript(
+                    "(function(){var"
+                        + " s=document.getElementById('__reader_style')||document.getElementById('__reader_initial');if(s)s.textContent="
+                            + JSONObject.quote(readerCss())
+                            + ";})()",
+                    null);
+        } else if (pageLoaded) reflow(wanted);
     }
 
+    private DocumentLocation reflowAnchor;
+
     public void seek(DocumentLocation location) {
+        reflowAnchor = null;
         if (closed) return;
         try {
             String[] parts = EpubDocumentSession.parts(location);
@@ -205,6 +217,8 @@ public final class EpubReadingSurface implements ReadingSurface {
                 || location == null
                 || view.getWidth() < 1
                 || view.getHeight() < 1) return;
+        if (reflowAnchor == null) reflowAnchor = location;
+        location = reflowAnchor;
         wanted = location;
         loading = true;
         ready = false;
@@ -239,6 +253,7 @@ public final class EpubReadingSurface implements ReadingSurface {
     }
 
     public void move(int direction) {
+        reflowAnchor = null;
         if (closed) return;
         pending = Math.max(-32, Math.min(32, pending + direction));
         pump();

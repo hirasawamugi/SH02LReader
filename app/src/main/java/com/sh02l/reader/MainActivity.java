@@ -60,12 +60,14 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
     private DiagnosticStore diagnosticStore;
     private SharedPreferences preferences;
     private AppearanceStore appearanceStore;
+    private AppearanceFeatures appearanceFeatures;
     private int uiTheme, bookStyle;
     private FrameLayout root, overlayHost;
     private Screen builtBase, builtOverlay;
     private NavigationListView baseList, overlayList;
-    private TextView noticeView, infoView, diagnosticView;
-    private View readingView;
+    private TextView noticeView, infoView, diagnosticView, appearanceNotice;
+    private View readingView, readerTitle;
+    private boolean pureReading;
     private KeyHelpView helpView;
     private SoftKeyBar baseFooter, overlayFooter;
     private long generation;
@@ -104,8 +106,21 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
         theme = appearance.readerTheme;
         uiTheme = appearance.uiTheme;
         bookStyle = appearance.bookStyle;
+        appearanceFeatures =
+                new AppearanceFeatures(
+                        this,
+                        uiTheme,
+                        bookStyle,
+                        saved -> {
+                            uiTheme = Math.min(saved.preset, 2);
+                            bookStyle = saved.style;
+                            saveSettings();
+                            builtBase = builtOverlay = null;
+                        });
+        bookStyle = appearanceFeatures.active().style;
         brightness = bound(preferences.getInt("brightness", prototype.brightness), 1, 10);
         infoVisible = preferences.getBoolean("info", prototype.infoVisible);
+        pureReading = preferences.getBoolean("pure_reading", false);
         repository = BookRepository.obtain(this);
         readingSettings = new ReadingSettings(this, preferences);
         storageManager = new StorageManager(this, repository);
@@ -173,6 +188,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
         root = new FrameLayout(this);
         root.setTag("app-root");
         setContentView(root);
+        appearanceFeatures.start();
         screens.add(new Screen(Kind.LIBRARY, "书架"));
         if (Intent.ACTION_VIEW.equals(getIntent().getAction())) pendingUri = getIntent().getData();
         diagnostics.append(
@@ -240,10 +256,12 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
                 else select(top().selected + 1);
                 break;
             case LEFT:
-                if (top().kind == Kind.SETTINGS) adjust(-1);
+                if (adjustableScreen()) adjust(-1);
+                else pageSelection(-1);
                 break;
             case RIGHT:
-                if (top().kind == Kind.SETTINGS) adjust(1);
+                if (adjustableScreen()) adjust(1);
+                else pageSelection(1);
                 break;
             case ACTIVATE:
                 if (top().kind == Kind.INPUT && inputView != null) inputView.submit();
@@ -312,6 +330,16 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
                 brightness = bound(brightness + 1, 1, 10);
                 saveSettings();
                 break;
+            case PRIMARY:
+                if (top().primary != null && !top().busy) top().primary.run();
+                break;
+            case CONTENTS_JUMP:
+                jumpContents();
+                break;
+            case PURE_READING:
+                pureReading = !pureReading;
+                preferences.edit().putBoolean("pure_reading", pureReading).apply();
+                break;
             case INFO:
                 infoVisible = !infoVisible;
                 appearanceChanged();
@@ -343,7 +371,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
         diagnostics.record(input, result);
         Log.d("SH02LKeys", diagnostics.tail(1).trim());
         if (result.consumed) {
-            if (!isFinishing()) render();
+            if (!isFinishing() && event.getAction() == KeyEvent.ACTION_DOWN) render();
             return true;
         }
         return super.dispatchKeyEvent(event);
@@ -354,6 +382,54 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
         if (top().kind == Kind.LIBRARY) menu(true);
         else back();
         render();
+    }
+
+    private boolean adjustableScreen() {
+        return top().kind == Kind.SETTINGS
+                || top().kind == Kind.THEME_EDITOR
+                || top().kind == Kind.THEME_COLORS;
+    }
+
+    private void pageSelection(int direction) {
+        Screen screen = top();
+        NavigationListView list = screen.kind.overlay() ? overlayList : baseList;
+        if (list == null || screen.rows.isEmpty()) return;
+        int step = Math.max(1, list.getLastVisiblePosition() - list.getFirstVisiblePosition());
+        int target = bound(screen.selected + direction * step, 0, screen.rows.size() - 1);
+        while (!screen.rows.get(target).selectable()) {
+            int next = target + direction;
+            if (next < 0 || next >= screen.rows.size()) return;
+            target = next;
+        }
+        screen.selected = target;
+    }
+
+    private void jumpContents() {
+        Screen contents = top();
+        int count = 0;
+        for (Row row : contents.rows) if (row.id.equals("chapter")) count++;
+        if (count == 0) return;
+        final int total = count;
+        input(
+                "目录序号 · 1–" + total,
+                "",
+                true,
+                value -> {
+                    try {
+                        int ordinal = Integer.parseInt(value.trim());
+                        if (ordinal < 1 || ordinal > total) return "请输入 1–" + total;
+                        int n = 0;
+                        for (int i = 0; i < contents.rows.size(); i++)
+                            if (contents.rows.get(i).id.equals("chapter") && ++n == ordinal) {
+                                contents.selected = i;
+                                contents.hasSelectionTop = false;
+                                break;
+                            }
+                        return null;
+                    } catch (NumberFormatException error) {
+                        return "请输入目录序号";
+                    }
+                });
     }
 
     private void select(int selected) {
@@ -376,7 +452,12 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
 
     public void back() {
         if (screens.size() == 1) return;
+        if (appearanceFeatures.blocksBack(top())) {
+            notice = "正在保存外观，请稍候";
+            return;
+        }
         Screen removed = screens.remove(screens.size() - 1);
+        appearanceFeatures.removed(removed);
         navigation.changed();
         if (removed.busy) cancelWork();
         if (removed.busy && !pausedBookId.isEmpty()) {
@@ -420,7 +501,10 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
     }
 
     public void closeOverlays() {
-        while (top().kind.overlay()) back();
+        while (top().kind.overlay()) {
+            if (appearanceFeatures.blocksBack(top())) return;
+            back();
+        }
     }
 
     private void goLibrary() {
@@ -534,6 +618,10 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
     }
 
     private void settingsGroup(int group) {
+        if (group == 1) {
+            appearanceFeatures.open();
+            return;
+        }
         Screen screen = new Screen(Kind.SETTINGS, group == 1 ? "界面外观" : group == 2 ? "正文阅读" : "设置");
         screen.group = group;
         refreshSettings(screen);
@@ -986,6 +1074,10 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
     @Override
     protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
+        if (request == AppearanceFeatures.PICK_BACKGROUND) {
+            if (result == RESULT_OK && data != null) appearanceFeatures.picked(data.getData());
+            return;
+        }
         if (request == 2) {
             ImportRequest selected = pickerRequest;
             pickerRequest = null;
@@ -1518,7 +1610,10 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
         rememberSelection(builtBase, baseList);
         rememberSelection(builtOverlay, overlayList);
         Screen content = base();
-        Palette palette = Palette.forTheme(content.kind == Kind.READER ? theme : uiTheme);
+        Palette palette =
+                content.kind == Kind.READER
+                        ? Palette.forTheme(theme)
+                        : appearanceFeatures.palette();
         background = palette.background;
         foreground = palette.foreground;
         secondary = palette.secondary;
@@ -1530,10 +1625,9 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
                                 + ":"
                                 + fontSize
                                 + ":"
-                                + infoVisible
                                 + ":"
                                 + readingSettings.signature()
-                        : "ui:" + uiTheme + ":" + bookStyle;
+                        : "ui:" + uiTheme + ":" + bookStyle + ":" + appearanceFeatures.revision;
         if (builtOverlayTheme != uiTheme) {
             builtOverlay = null;
             builtOverlayTheme = uiTheme;
@@ -1546,6 +1640,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
                 ((LibraryAdapter) baseList.getAdapter()).close();
             root.removeAllViews();
             root.setBackgroundColor(background);
+            if (content.kind == Kind.LIBRARY) root.setBackground(appearanceFeatures.background());
             readingView = null;
             helpView = null;
             inputView = null;
@@ -1579,7 +1674,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
         if (readingView != null)
             readingView.setFocusable(!top().kind.overlay() && top().kind == Kind.READER);
         if (active != null) {
-            ((BaseAdapter) active.getAdapter()).notifyDataSetChanged();
+            if (active != baseList) ((BaseAdapter) active.getAdapter()).notifyDataSetChanged();
             Integer offset = active.showSelection(top().selected);
             // Another key may open a screen before the scheduled list layout runs.
             if (offset != null) {
@@ -1593,6 +1688,18 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
         else if (top().kind == Kind.READER && readingView != null && !readingView.hasFocus())
             readingView.requestFocus();
         if (noticeView != null) noticeView.setText(notice);
+        if (appearanceNotice != null) appearanceNotice.setText(notice);
+        if (content.kind == Kind.READER) {
+            if (readerTitle != null)
+                readerTitle.setVisibility(pureReading ? View.GONE : View.VISIBLE);
+            if (infoView != null)
+                infoView.setVisibility(!pureReading && infoVisible ? View.VISIBLE : View.GONE);
+            if (baseFooter != null)
+                baseFooter.setVisibility(pureReading ? View.GONE : View.VISIBLE);
+            if (noticeView != null)
+                noticeView.setVisibility(
+                        pureReading && notice.isEmpty() ? View.GONE : View.VISIBLE);
+        }
         if (infoView != null)
             infoView.setText(
                     session == null
@@ -1611,10 +1718,14 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
         if (baseFooter != null)
             baseFooter.setHints(
                     InputBindings.hints(inputContext(), deviceKeys),
-                    Palette.forTheme(content.kind == Kind.READER ? theme : uiTheme));
+                    content.kind == Kind.READER
+                            ? Palette.forTheme(theme)
+                            : appearanceFeatures.palette());
         if (overlayFooter != null)
             overlayFooter.setHints(
-                    InputBindings.hints(inputContext(), deviceKeys), Palette.forTheme(uiTheme));
+                    InputBindings.hints(inputContext(), deviceKeys), appearanceFeatures.palette());
+        if (overlayFooter != null && top().kind == Kind.HELP)
+            overlayFooter.setHelp(appearanceFeatures.palette());
         windowPolicy();
         if (top().kind == Kind.READER) requestLayoutIfReady();
     }
@@ -1627,11 +1738,16 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
                 dp(screen.kind == Kind.READER ? readingSettings.horizontal : 12),
                 dp(screen.kind == Kind.READER ? readingSettings.vertical : 6));
         TextView title =
-                new UiStyle(this, Palette.forTheme(screen.kind == Kind.READER ? theme : uiTheme))
+                new UiStyle(
+                                this,
+                                screen.kind == Kind.READER
+                                        ? Palette.forTheme(theme)
+                                        : appearanceFeatures.palette())
                         .title(screen.title);
         title.setTag("screen-title");
         if (screen.kind == Kind.READER) title.setTextSize(12);
         column.addView(title);
+        readerTitle = screen.kind == Kind.READER ? title : null;
         if (screen.kind == Kind.READER) {
             readingView = readingController.view();
             if (readingView == null) {
@@ -1642,7 +1758,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
             if (readingView.getParent() instanceof ViewGroup)
                 ((ViewGroup) readingView.getParent()).removeView(readingView);
             column.addView(readingView, new LinearLayout.LayoutParams(-1, 0, 1));
-            if (infoVisible) {
+            {
                 infoView = text("", 11, secondary);
                 infoView.setTag("reading-info");
                 column.addView(infoView);
@@ -1681,17 +1797,25 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
         column.addView(noticeView);
         SoftKeyBar footer = new SoftKeyBar(this);
         baseFooter = footer;
-        Palette colors = Palette.forTheme(screen.kind == Kind.READER ? theme : uiTheme);
+        Palette colors =
+                screen.kind == Kind.READER ? Palette.forTheme(theme) : appearanceFeatures.palette();
         footer.setHints(InputBindings.hints(inputContext(), deviceKeys), colors);
         column.addView(footer);
         return column;
     }
 
     private void buildOverlay(Screen screen) {
+        appearanceNotice = null;
         helpView = null;
         overlayList = null;
         inputView = null;
-        Palette palette = Palette.forTheme(uiTheme);
+        if (screen.kind == Kind.THEME_PREVIEW) {
+            overlayFooter = null;
+            overlayHost.addView(
+                    appearanceFeatures.previewView(), new FrameLayout.LayoutParams(-1, -1));
+            return;
+        }
+        Palette palette = appearanceFeatures.palette();
         UiStyle style = new UiStyle(this, palette);
         FrameLayout shade = new FrameLayout(this);
         shade.setTag("overlay");
@@ -1732,6 +1856,11 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
             overlayList = list(screen);
             panel.addView(overlayList, new LinearLayout.LayoutParams(-1, 0, 1));
         }
+        if (screen.kind == Kind.THEME_EDITOR || screen.kind == Kind.THEME_FILES) {
+            appearanceNotice = text(notice, 11, palette.secondary);
+            appearanceNotice.setMaxLines(2);
+            panel.addView(appearanceNotice);
+        }
         SoftKeyBar footer = new SoftKeyBar(this);
         overlayFooter = footer;
         footer.setHints(InputBindings.hints(inputContext(), deviceKeys), palette);
@@ -1759,7 +1888,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
     }
 
     private NavigationListView list(Screen screen) {
-        UiStyle style = new UiStyle(this, Palette.forTheme(uiTheme));
+        UiStyle style = new UiStyle(this, appearanceFeatures.palette());
         NavigationListView list = new NavigationListView(this, uiTheme == AppearanceState.DARK);
         list.setTag("list:" + screen.kind.name());
         list.setDivider(null);
@@ -1798,7 +1927,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
                                 row.label));
             }
             adapter.setItems(items);
-            adapter.setStyle(bookStyle, Palette.forTheme(uiTheme));
+            adapter.setStyle(bookStyle, appearanceFeatures.palette());
             list.setAdapter(adapter);
         } else
             list.setAdapter(
@@ -2055,6 +2184,7 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
         if (baseList != null && baseList.getAdapter() instanceof LibraryAdapter)
             ((LibraryAdapter) baseList.getAdapter()).close();
         destroyed = true;
+        appearanceFeatures.close();
         generation++;
         readingController.destroy();
         worker.close();

@@ -49,13 +49,12 @@ public final class TxtPaginator {
                     && height == value.height
                     && textSize == value.textSize
                     && lineExtra == value.lineExtra
-                    && color == value.color
                     && typeface.equals(value.typeface);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(width, height, textSize, lineExtra, color, typeface);
+            return Objects.hash(width, height, textSize, lineExtra, typeface);
         }
     }
 

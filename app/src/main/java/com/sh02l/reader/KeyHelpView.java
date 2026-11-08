@@ -162,14 +162,6 @@ final class KeyHelpView extends View {
         paragraph.setColor(palette.secondary);
         notes.draw(canvas);
         canvas.restore();
-        if (total > getHeight()) {
-            paint.setColor(palette.accent);
-            paint.setStyle(Paint.Style.FILL);
-            float thumb = Math.max(20 * density, getHeight() * getHeight() / total),
-                    y = scroll / (total - getHeight()) * (getHeight() - thumb);
-            canvas.drawRoundRect(
-                    getWidth() - 2 * density, y, getWidth(), y + thumb, density, density, paint);
-        }
     }
 
     private String label(String id) {
@@ -197,7 +189,7 @@ final class KeyHelpView extends View {
             case "7":
                 return "亮度−";
             case "8":
-                return "信息栏";
+                return "纯阅读";
             case "9":
                 return "亮度＋";
             case "*":

@@ -11,7 +11,8 @@ final class MenuCatalog {
         List<UiAction> result = new ArrayList<>();
         add(result, "back", "关闭菜单");
         if (context.general) {
-            add(result, "settings", "阅读与界面设置");
+            add(result, "appearance", "界面外观");
+            add(result, "reading-settings", "正文阅读设置");
             add(result, "import", "导入图书（TXT / EPUB）");
             add(result, "storage", "存储管理");
             add(result, "help", "按键说明");

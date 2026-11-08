@@ -151,7 +151,7 @@ final class BookRepository {
         }
         String sql =
                 "SELECT COUNT(*) FROM books WHERE opened>? OR (opened=? AND (title COLLATE NOCASE<?"
-                    + " COLLATE NOCASE OR (title COLLATE NOCASE=? COLLATE NOCASE AND id<?)))";
+                        + " COLLATE NOCASE OR (title COLLATE NOCASE=? COLLATE NOCASE AND id<?)))";
         try (Cursor cursor = db.rawQuery(sql, new String[] {opened, opened, title, title, id})) {
             cursor.moveToFirst();
             return cursor.getInt(0) / pageSize;
@@ -231,14 +231,16 @@ final class BookRepository {
         }
         File staging = new File(books, ".import-" + UUID.randomUUID());
         try {
-            DocumentImportRegistry.Prepared result =
-                    DocumentImportRegistry.prepare(source, name, staging, observer);
+            TextImporter.Saved saved =
+                    DocumentImportRegistry.saveOriginal(source, staging, observer);
             TextImporter.check(observer);
-            Book existing = get(result.id);
+            Book existing = get(saved.id);
             if (existing != null) {
-                original(result.id, observer);
+                original(saved.id, observer);
                 return existing;
             }
+            DocumentImportRegistry.Prepared result =
+                    DocumentImportRegistry.prepareSaved(saved, name, staging, observer);
             File destination = directory(result.id);
             if (destination.exists()) {
                 if (!verifiedOriginal(destination, result.id))
@@ -542,7 +544,7 @@ final class BookRepository {
         if (!verifiedOriginal(previous, id)) {
             if (verifiedOriginal(destination, id))
                 return; // A partial old-cache cleanup must not block repair of the surviving
-                        // original.
+            // original.
             throw new IOException("Cannot verify previous private original");
         }
         if (destination.exists()) {

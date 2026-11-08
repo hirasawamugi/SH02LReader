@@ -28,6 +28,12 @@ final class InputBindings {
             }
         }
         if (key == Key.F4) return kind == LIBRARY ? Action.NONE : Action.BACK;
+        if (key == Key.F1 && kind == CONTENTS) return Action.CONTENTS_JUMP;
+        if (key == Key.F3
+                && (kind == THEME_EDITOR
+                        || kind == CACHE_BOOKS
+                        || kind == STORAGE_BOOKS
+                        || kind == IMPORT_CLEANUP)) return Action.PRIMARY;
         boolean root = kind == LIBRARY || kind == READER || kind == MENU;
         if (key == Key.F1) return root ? Action.MENU : Action.NONE;
         if (key == Key.F3) return root ? Action.GENERAL_MENU : Action.NONE;
@@ -60,7 +66,7 @@ final class InputBindings {
                 case NINE:
                     return Action.BRIGHTER;
                 case EIGHT:
-                    return Action.INFO;
+                    return Action.PURE_READING;
                 case STAR:
                     return Action.SETTINGS;
                 case POUND:
@@ -97,6 +103,10 @@ final class InputBindings {
                 return context.kind == READER ? "返回书架" : "返回 / 关闭";
             case ACTIVATE:
                 return "确认";
+            case PRIMARY:
+                return context.kind == THEME_EDITOR ? "保存外观" : "处理所选";
+            case CONTENTS_JUMP:
+                return "目录序号";
             default:
                 return "—";
         }
