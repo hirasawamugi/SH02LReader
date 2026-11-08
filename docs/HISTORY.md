@@ -2,6 +2,13 @@
 
 这里保留阶段设计、实施进度和验证记录。它们描述对应日期的状态；早期文档中的“待实现”“下一步”与测试数字不代表当前待办。当前使用与构建入口见 [文档索引](README.md)。
 
+## M4：按键使用与个性化（2026-11-08）
+
+- [M4 说明](M4_RELEASE_NOTES.md)、[验证](M4_VALIDATION.md)：书库清理、按键交互、静态外观和纯阅读。
+- [M4.1 说明](M4_1_RELEASE_NOTES.md)、[验证](M4_1_VALIDATION.md)：菜单焦点、背景清晰度和 EPUB 重开。
+- [M4.2 说明](M4_2_RELEASE_NOTES.md)、[验证](M4_2_VALIDATION.md)：外观保存期间的帮助打断。
+- [M4.3 说明](M4_3_RELEASE_NOTES.md)、[验证](M4_3_VALIDATION.md)：初音未来、边缘行者配色和焦点可读性。
+
 ## M3：轻量阅读优化（2026-10-21，0.5.0-m3）
 
 - [变更说明](M3_RELEASE_NOTES.md)、[验证记录](M3_VALIDATION.md)、[审查](M3_REVIEW.md)、[实施进度](M3_PROGRESS.md)。

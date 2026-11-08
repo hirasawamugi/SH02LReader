@@ -58,14 +58,14 @@ final class UiStyle {
     void bind(TextView view, String value, boolean selected, boolean active) {
         if (!TextUtils.equals(view.getText(), value)) view.setText(value);
         view.setContentDescription(value);
-        view.setTextColor(palette.foreground);
+        view.setTextColor(selected ? palette.focusForeground : palette.foreground);
         view.setTypeface(null, android.graphics.Typeface.NORMAL);
         applySelection(view, selected);
         if (view instanceof Label) ((Label) view).active(selected && active);
     }
 
     void applySelection(View view, boolean selected) {
-        int color = selected ? blend(palette.selected, palette.accent, 4) : Color.TRANSPARENT;
+        int color = selected ? palette.focusBackground : Color.TRANSPARENT;
         if (view.getBackground() instanceof GradientDrawable) {
             GradientDrawable previous = (GradientDrawable) view.getBackground();
             if (previous.getColor() != null && previous.getColor().getDefaultColor() == color)
@@ -75,13 +75,6 @@ final class UiStyle {
         shape.setColor(color);
         shape.setCornerRadius(dp(12));
         view.setBackground(shape);
-    }
-
-    static int blend(int base, int accent, int percent) {
-        int r = (Color.red(base) * (100 - percent) + Color.red(accent) * percent) / 100;
-        int g = (Color.green(base) * (100 - percent) + Color.green(accent) * percent) / 100;
-        int b = (Color.blue(base) * (100 - percent) + Color.blue(accent) * percent) / 100;
-        return Color.rgb(r, g, b);
     }
 
     static void pauseMarquees(View view) {

@@ -9,6 +9,7 @@ import android.view.*;
 import android.widget.*;
 
 import com.sh02l.reader.NavigationState.*;
+import com.sh02l.reader.core.ColorContrast;
 import com.sh02l.reader.core.Palette;
 import com.sh02l.reader.core.text.TextImporter;
 
@@ -478,29 +479,13 @@ final class AppearanceFeatures implements AutoCloseable {
         note.setBackgroundColor(p.surface);
         note.setText(
                 "F4 返回草稿 · 在外观页按 F3 保存\n"
-                        + (contrast(p.foreground, p.selected) < 3
-                                        || contrast(p.foreground, p.background) < 3
+                        + (ColorContrast.ratio(p.focusForeground, p.focusBackground) < 3
+                                        || ColorContrast.ratio(p.foreground, p.background) < 3
                                 ? "提示：文字与背景接近，请提高对比度或加深遮罩。"
                                 : "图片只用于书架，正文保留独立配色。"));
         content.addView(note);
         frame.addView(content, new FrameLayout.LayoutParams(-1, -1));
         return frame;
-    }
-
-    private static double luminance(int c) {
-        double sum = 0;
-        double[] weights = {.2126, .7152, .0722};
-        int[] parts = {Color.red(c), Color.green(c), Color.blue(c)};
-        for (int i = 0; i < 3; i++) {
-            double v = parts[i] / 255.0;
-            sum += weights[i] * (v <= .04045 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4));
-        }
-        return sum;
-    }
-
-    private static double contrast(int a, int b) {
-        double x = luminance(a), y = luminance(b);
-        return (Math.max(x, y) + .05) / (Math.min(x, y) + .05);
     }
 
     private void save() {

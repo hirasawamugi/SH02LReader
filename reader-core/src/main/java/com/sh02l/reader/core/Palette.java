@@ -3,6 +3,7 @@ package com.sh02l.reader.core;
 /** Opaque ARGB roles shared by every native page. */
 public final class Palette {
     public final int background, surface, foreground, secondary, accent, selected, divider;
+    public final int focusBackground, focusForeground, focusSecondary, focusAccent;
 
     public Palette(
             int background,
@@ -19,6 +20,11 @@ public final class Palette {
         this.accent = accent;
         this.selected = selected;
         this.divider = divider;
+        // Resolve once per palette, not during drawing or every row's focus update.
+        focusBackground = ColorContrast.blend(selected, accent, 4);
+        focusForeground = ColorContrast.readable(foreground, focusBackground, background, 4.5);
+        focusSecondary = ColorContrast.readable(secondary, focusBackground, focusForeground, 4.5);
+        focusAccent = ColorContrast.readable(accent, focusBackground, focusForeground, 3);
     }
 
     public static Palette forTheme(int theme) {

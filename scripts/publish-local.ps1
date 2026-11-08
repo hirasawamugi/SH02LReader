@@ -1,4 +1,4 @@
-param([string]$Version = '0.6.2-m4.2')
+param([string]$Version = '0.6.3-m4.3')
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z0-9.]+)?$') { throw 'Invalid version.' }
 $taskProjectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
@@ -65,7 +65,7 @@ $taskRecord = [ordered]@{
     version=$Version; applicationId='com.sh02l.reader'; minSdk=27; targetSdk=35
     apk=$taskApkName; bytes=(Get-Item -LiteralPath $taskApk).Length; sha256=$taskHash
     sourceCommit=$taskBuildCommit; publicationCommit=$taskCommit; sourceClean=($taskSourceStatus.Count -eq 0)
-    stage=$(if ($taskDocumentPrefix -eq 'M4_2') { 'M4.2 appearance operation navigation guard and interruption checks' } elseif ($taskDocumentPrefix -eq 'M4_1') { 'M4.1 menu focus, background detail and repeated EPUB opening fixes' } elseif ($taskDocumentPrefix -eq 'M4') { 'M4 keypad usability, clean imports, static personalization and pure reading' } elseif ($taskDocumentPrefix -eq 'M3') { 'M3 reading improvements and lightweight write-boundary validation' } elseif ($taskDocumentPrefix -eq 'M2_5') { 'M2.5 shared architecture, keypad menus and EPUB' } elseif ($taskDocumentPrefix -eq 'M2') { 'M2 daily reading and storage management' } else { 'M1.5 themes, keypad UI and safe import' }); toolchain='AGP 8.6.1 / Gradle 8.7 / JDK 17'
+    stage=$(if ($taskDocumentPrefix -eq 'M4_3') { 'M4.3 Miku and Edgerunners palettes with readable keypad focus' } elseif ($taskDocumentPrefix -eq 'M4_2') { 'M4.2 appearance operation navigation guard and interruption checks' } elseif ($taskDocumentPrefix -eq 'M4_1') { 'M4.1 menu focus, background detail and repeated EPUB opening fixes' } elseif ($taskDocumentPrefix -eq 'M4') { 'M4 keypad usability, clean imports, static personalization and pure reading' } elseif ($taskDocumentPrefix -eq 'M3') { 'M3 reading improvements and lightweight write-boundary validation' } elseif ($taskDocumentPrefix -eq 'M2_5') { 'M2.5 shared architecture, keypad menus and EPUB' } elseif ($taskDocumentPrefix -eq 'M2') { 'M2 daily reading and storage management' } else { 'M1.5 themes, keypad UI and safe import' }); toolchain='AGP 8.6.1 / Gradle 8.7 / JDK 17'
 }
 $taskRecord | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $taskOutputRoot 'build-info.json') -Encoding UTF8
 $taskRecord | ConvertTo-Json

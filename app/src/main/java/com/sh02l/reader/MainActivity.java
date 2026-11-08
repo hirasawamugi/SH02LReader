@@ -112,12 +112,13 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
                         uiTheme,
                         bookStyle,
                         saved -> {
-                            uiTheme = Math.min(saved.preset, 2);
+                            uiTheme = saved.legacyTheme();
                             bookStyle = saved.style;
                             saveSettings();
                             builtBase = builtOverlay = null;
                         });
         bookStyle = appearanceFeatures.active().style;
+        uiTheme = appearanceFeatures.active().legacyTheme();
         brightness = bound(preferences.getInt("brightness", prototype.brightness), 1, 10);
         infoVisible = preferences.getBoolean("info", prototype.infoVisible);
         pureReading = preferences.getBoolean("pure_reading", false);

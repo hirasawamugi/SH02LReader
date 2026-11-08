@@ -1,12 +1,19 @@
 package com.sh02l.reader;
 
+import com.sh02l.reader.core.AppearanceState;
 import com.sh02l.reader.core.Palette;
 
 import org.json.*;
 
+import java.util.Arrays;
+
 /** A single saved UI appearance. Reading colors remain independent. */
 final class ThemeSpec {
-    static final String[] NAMES = {"米白", "白色", "暖炭灰", "青绿夜色", "霓虹夜色"};
+    static final String[] NAMES = {"米白", "白色", "暖炭灰", "初音未来", "边缘行者"};
+    private static final int[][] ORIGINAL_NIGHT_PRESETS = {
+        {0xff122a2b, 0xff1b3638, 0xffe1fffa, 0xffa0cbc5, 0xff39c5bb, 0xff255b5b, 0xff416b69},
+        {0xff161329, 0xff211d38, 0xfff3eeff, 0xffc0afd9, 0xfff574db, 0xff4a2f61, 0xff64517c}
+    };
     static final String[] ROLES = {"页面底色", "面板底色", "主要文字", "次要文字", "强调色", "选中底色", "分隔色"};
     int preset, style, fit, position, mask = 2;
     int[] colors;
@@ -22,22 +29,22 @@ final class ThemeSpec {
         Palette p =
                 value == 3
                         ? new Palette(
-                                0xff122a2b,
-                                0xff1b3638,
-                                0xffe1fffa,
-                                0xffa0cbc5,
-                                0xff39c5bb,
-                                0xff255b5b,
-                                0xff416b69)
+                                0xfff0faf4,
+                                0xfffcfffd,
+                                0xff193b35,
+                                0xff4f7068,
+                                0xff168b7b,
+                                0xffb8ebd8,
+                                0xffc4ddd3)
                         : value == 4
                                 ? new Palette(
-                                        0xff161329,
-                                        0xff211d38,
-                                        0xfff3eeff,
-                                        0xffc0afd9,
-                                        0xfff574db,
-                                        0xff4a2f61,
-                                        0xff64517c)
+                                        0xff131824,
+                                        0xff20283a,
+                                        0xffeff2f8,
+                                        0xffa9bfc7,
+                                        0xff49d9c8,
+                                        0xfffcee0a,
+                                        0xff34495b)
                                 : Palette.forTheme(value);
         colors =
                 new int[] {
@@ -54,6 +61,10 @@ final class ThemeSpec {
     Palette palette() {
         return new Palette(
                 colors[0], colors[1], colors[2], colors[3], colors[4], colors[5], colors[6]);
+    }
+
+    int legacyTheme() {
+        return preset == 3 ? AppearanceState.LIGHT : Math.min(preset, AppearanceState.DARK);
     }
 
     ThemeSpec copy() {
@@ -94,6 +105,9 @@ final class ThemeSpec {
         JSONArray a = o.getJSONArray("colors");
         if (a.length() != 7) throw new JSONException("Invalid palette");
         for (int i = 0; i < 7; i++) n.colors[i] = a.getInt(i) | 0xff000000;
+        // Replace only the two exact, untouched old presets. Keep every custom color and asset.
+        if (n.preset >= 3 && Arrays.equals(n.colors, ORIGINAL_NIGHT_PRESETS[n.preset - 3]))
+            n.preset(n.preset);
         return n;
     }
 

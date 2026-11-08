@@ -16,7 +16,7 @@ final class BookRowView extends LinearLayout {
     private final UiStyle.Label name;
     private final TextView detail;
     private int mode;
-    private boolean importing;
+    private boolean importing, selected, customCover;
     private String boundBook = "", actionId = "import";
     private long bindToken;
     private Palette colors;
@@ -60,6 +60,7 @@ final class BookRowView extends LinearLayout {
         boolean resetImage = !boundBook.equals(id) || this.mode != mode;
         actionId = item.actionId;
         this.mode = mode;
+        this.selected = selected;
         colors = palette;
         boundBook = id;
         importing = item.book == null;
@@ -77,8 +78,8 @@ final class BookRowView extends LinearLayout {
                                                 : 100.0 * item.offset / item.book.length);
         if (!TextUtils.equals(name.getText(), title)) name.setText(title);
         detail.setText(meta);
-        name.setTextColor(palette.foreground);
-        detail.setTextColor(palette.secondary);
+        name.setTextColor(selected ? palette.focusForeground : palette.foreground);
+        detail.setTextColor(selected ? palette.focusSecondary : palette.secondary);
         setContentDescription(title + "，" + meta);
         setTag(importing ? "item:" + actionId : "item:book");
         setPadding(dp(14), dp(14), dp(14), dp(14));
@@ -90,6 +91,7 @@ final class BookRowView extends LinearLayout {
         icon.rightMargin = dp(10);
         image.setLayoutParams(icon);
         if (resetImage) defaultImage();
+        else if (!customCover) tintDefaultImage();
         image.setBackgroundColor(
                 mode == AppearanceState.COVER
                         ? palette.surface
@@ -118,14 +120,21 @@ final class BookRowView extends LinearLayout {
     }
 
     private void defaultImage() {
+        customCover = false;
         image.setImageResource(
                 importing
                         ? android.R.drawable.ic_input_add
                         : mode == AppearanceState.COVER
                                 ? R.drawable.cover_default
                                 : R.drawable.ic_book_line);
-        image.setImageTintList(android.content.res.ColorStateList.valueOf(colors.accent));
+        tintDefaultImage();
         image.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+    }
+
+    private void tintDefaultImage() {
+        // Cover placeholders have their own panel; small icons sit directly on the focus fill.
+        int color = selected && mode != AppearanceState.COVER ? colors.focusAccent : colors.accent;
+        image.setImageTintList(android.content.res.ColorStateList.valueOf(color));
     }
 
     void setCover(Bitmap bitmap) {
@@ -135,6 +144,7 @@ final class BookRowView extends LinearLayout {
             return;
         }
         image.setImageTintList(null);
+        customCover = true;
         image.setScaleType(ImageView.ScaleType.CENTER_CROP);
         image.setImageBitmap(bitmap);
     }
