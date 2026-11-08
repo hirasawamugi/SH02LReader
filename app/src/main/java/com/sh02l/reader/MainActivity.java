@@ -706,6 +706,11 @@ public final class MainActivity extends Activity implements KeyRouter.Target, Fe
     }
 
     private void help() {
+        if (appearanceFeatures.blocksHelp(top())) {
+            notice = "正在处理外观，请稍候；图片处理可按 F4 取消";
+            if (appearanceFeatures.blocksBack(top())) notice = "正在保存外观，请稍候";
+            return;
+        }
         if (top().kind == Kind.HELP) {
             back();
             return;

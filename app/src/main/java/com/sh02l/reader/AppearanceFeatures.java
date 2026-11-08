@@ -83,6 +83,12 @@ final class AppearanceFeatures implements AutoCloseable {
         return screen == editor && committing;
     }
 
+    boolean blocksHelp(Screen screen) {
+        // Preview/save completion belongs to this editor. Do not put help above it while
+        // asynchronous image work can still navigate; cancellation remains available via F4.
+        return screen == editor && busy;
+    }
+
     void removed(Screen screen) {
         if (screen == editor) cancel();
     }
